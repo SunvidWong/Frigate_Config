@@ -139,14 +139,15 @@ pub async fn run_http_server(port: u16) -> Result<(), Box<dyn std::error::Error>
         .allow_methods(Any)
         .allow_headers(Any);
 
-    // API routes
+    // API routes with CORS applied first
     let api_routes = Router::new()
         .route("/health", get(health_check))
         .route("/quick_scan_cameras", post(quick_scan))
         .route("/scan_for_cameras", post(custom_scan))
         .route("/guess_network_range_command", post(get_network_range))
         .route("/add_hardware_device_to_config", post(add_hardware_device))
-        .route("/get_saved_hardware_devices", post(get_hardware_devices));
+        .route("/get_saved_hardware_devices", post(get_hardware_devices))
+        .layer(cors.clone());
 
     // Serve static files from /app/web
     let static_files = ServeDir::new("/app/web").append_index_html_on_directories(true);
