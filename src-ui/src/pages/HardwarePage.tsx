@@ -21,6 +21,10 @@ const HardwarePage: React.FC = () => {
   const [addingDevice, setAddingDevice] = useState<string | null>(null)
   const [addSuccess, setAddSuccess] = useState<string | null>(null)
   const [isInTauriEnv, setIsInTauriEnv] = useState(false)
+  const [showManualAddForm, setShowManualAddForm] = useState(false)
+  const [manualDevicePath, setManualDevicePath] = useState('')
+  const [manualDeviceType, setManualDeviceType] = useState<DeviceType>('gpu')
+  const [manualDeviceName, setManualDeviceName] = useState('')
 
   const {
     data: detectionData,
@@ -117,6 +121,39 @@ const HardwarePage: React.FC = () => {
     }
   }
 
+  const handleManualAdd = async () => {
+    if (!manualDevicePath || !manualDeviceName) {
+      alert('请填写设备路径和设备名称')
+      return
+    }
+
+    setAddingDevice('manual')
+    setAddSuccess(null)
+
+    try {
+      await safeInvoke('add_hardware_device_to_config', {
+        devicePath: manualDevicePath,
+        deviceType: manualDeviceType,
+        deviceName: manualDeviceName
+      })
+
+      setAddSuccess(`已添加 ${manualDeviceName} 到配置`)
+
+      // Clear form
+      setManualDevicePath('')
+      setManualDeviceName('')
+      setManualDeviceType('gpu')
+      setShowManualAddForm(false)
+
+      // Clear success message after 3 seconds
+      setTimeout(() => setAddSuccess(null), 3000)
+    } catch (err) {
+      alert(`添加失败: ${err}`)
+    } finally {
+      setAddingDevice(null)
+    }
+  }
+
   const getDeviceIcon = (type: DeviceType): string => {
     const icons: Record<DeviceType, string> = {
       gpu: '🎮',
@@ -147,19 +184,100 @@ const HardwarePage: React.FC = () => {
         </p>
       </div>
 
-      {/* Environment Warning */}
+      {/* Environment Warning with Manual Add Form */}
       {!isInTauriEnv && (
-        <Card className="mb-6 bg-yellow-50 border border-yellow-200">
+        <Card className="mb-6 bg-blue-50 border border-blue-200">
           <div className="flex items-start">
-            <span className="text-yellow-500 text-2xl mr-3">⚠️</span>
+            <span className="text-blue-500 text-2xl mr-3">ℹ️</span>
             <div className="flex-1">
-              <h3 className="text-lg font-semibold text-yellow-900 mb-2">硬件检测功能不可用</h3>
-              <p className="text-sm text-yellow-800 mb-3">
-                您当前在浏览器环境中运行此应用。硬件检测和自动添加功能仅在桌面应用中可用。
+              <h3 className="text-lg font-semibold text-blue-900 mb-2">Docker / 浏览器模式</h3>
+              <p className="text-sm text-blue-800 mb-3">
+                您当前在浏览器环境中运行此应用。自动硬件检测功能不可用,但您可以手动添加设备路径到配置中。
               </p>
-              <p className="text-sm text-yellow-800">
-                💡 <strong>提示:</strong> 如需使用硬件检测功能,请下载并安装桌面版本。在Docker部署版本中,您可以手动在部署配置中添加设备路径。
-              </p>
+
+              <Button
+                size="sm"
+                onClick={() => setShowManualAddForm(!showManualAddForm)}
+                icon={showManualAddForm ? '−' : '+'}
+                variant="outline"
+                className="mb-3"
+              >
+                {showManualAddForm ? '取消添加' : '手动添加设备'}
+              </Button>
+
+              {showManualAddForm && (
+                <div className="mt-4 p-4 bg-white rounded-lg border border-blue-200">
+                  <h4 className="font-semibold text-gray-900 mb-3">手动添加硬件设备</h4>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        设备路径 <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={manualDevicePath}
+                        onChange={(e) => setManualDevicePath(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
+                        placeholder="/dev/dri/renderD128 或 /dev/apex_0"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        示例: /dev/dri/renderD128 (Intel GPU), /dev/apex_0 (Google Coral TPU), /dev/video0 (摄像头)
+                      </p>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        设备类型 <span className="text-red-500">*</span>
+                      </label>
+                      <select
+                        value={manualDeviceType}
+                        onChange={(e) => setManualDeviceType(e.target.value as DeviceType)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="gpu">GPU (图形处理器)</option>
+                        <option value="tpu">TPU (张量处理器)</option>
+                        <option value="camera">Camera (摄像头)</option>
+                        <option value="capture_card">Capture Card (采集卡)</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        设备名称 <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={manualDeviceName}
+                        onChange={(e) => setManualDeviceName(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="Intel UHD Graphics 或 Google Coral"
+                      />
+                    </div>
+
+                    <div className="flex space-x-2 pt-2">
+                      <Button
+                        onClick={handleManualAdd}
+                        loading={addingDevice === 'manual'}
+                        disabled={!manualDevicePath || !manualDeviceName}
+                        icon="+"
+                      >
+                        {addingDevice === 'manual' ? '添加中...' : '添加到配置'}
+                      </Button>
+                      <Button
+                        onClick={() => {
+                          setShowManualAddForm(false)
+                          setManualDevicePath('')
+                          setManualDeviceName('')
+                          setManualDeviceType('gpu')
+                        }}
+                        variant="ghost"
+                      >
+                        取消
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </Card>
