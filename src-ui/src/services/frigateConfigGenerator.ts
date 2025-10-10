@@ -1,0 +1,354 @@
+// Frigate config.yml Generator
+// Generates Frigate configuration file (NOT docker-compose.yml)
+// This file only contains camera, detector, and Frigate-specific settings
+
+import type { CameraConfiguration, HardwareDevice } from '../types';
+
+interface FrigateConfig {
+  mqtt?: {
+    enabled: boolean;
+    host?: string;
+    port?: number;
+  };
+  detectors?: Record<string, any>;
+  cameras: Record<string, any>;
+  record?: {
+    enabled: boolean;
+    retain?: {
+      days: number;
+      mode: string;
+    };
+  };
+  snapshots?: {
+    enabled: boolean;
+    retain?: {
+      default: number;
+    };
+  };
+}
+
+export class FrigateConfigGenerator {
+  /**
+   * Generate Frigate config.yml (NOT docker-compose.yml)
+   * Based on official Frigate documentation format
+   */
+  static generateConfig(
+    cameras: CameraConfiguration[],
+    devices: HardwareDevice[],
+    _retentionDays: number = 7
+  ): string {
+    // Build config following official Frigate config.yml format
+    // Order: mqtt, detectors, cameras
+    const config: FrigateConfig = {
+      mqtt: {
+        enabled: false,
+      },
+      detectors: this.generateDetectors(devices, cameras),
+      cameras: {},
+    };
+
+    // Add cameras
+    cameras.forEach((camera) => {
+      if (camera.enabled) {
+        config.cameras[camera.name] = this.generateCameraConfig(camera, devices);
+      }
+    });
+
+    const yaml = this.toYAML(config);
+
+    // Debug: Log first line to console
+    console.log('生成的配置第一行:', yaml.split('\n')[0]);
+    console.log('生成的配置总行数:', yaml.split('\n').length);
+    console.log('配置开头 100 字符:', yaml.substring(0, 100));
+
+    return yaml;
+  }
+
+  /**
+   * Generate detectors configuration from cameras and hardware devices
+   */
+  private static generateDetectors(_devices: HardwareDevice[], cameras?: CameraConfiguration[]): Record<string, any> {
+    const detectors: Record<string, any> = {};
+
+    // Collect unique detectors from camera configurations
+    const usedDetectors = new Set<string>();
+
+    if (cameras) {
+      cameras.forEach((camera) => {
+        if (camera.enabled && camera.detector) {
+          usedDetectors.add(camera.detector);
+        }
+      });
+    }
+
+    // Generate detector configs based on type
+    usedDetectors.forEach((detectorType) => {
+      switch (detectorType) {
+        case 'tensorrt':
+          detectors['tensorrt'] = {
+            type: 'tensorrt',
+            device: 0, // GPU index
+          };
+          break;
+        case 'edgetpu':
+          detectors['edgetpu'] = {
+            type: 'edgetpu',
+            device: 'usb',
+          };
+          break;
+        case 'openvino':
+          detectors['openvino'] = {
+            type: 'openvino',
+            device: 'AUTO',
+          };
+          break;
+        case 'rknn':
+          detectors['rknn'] = {
+            type: 'rknn',
+            device: 'rknn',
+          };
+          break;
+        case 'hailo8':
+          detectors['hailo8'] = {
+            type: 'hailo8',
+            device: '/dev/hailo0',
+          };
+          break;
+        case 'cpu':
+          detectors['cpu'] = {
+            type: 'cpu',
+            num_threads: 3,
+          };
+          break;
+      }
+    });
+
+    // Add CPU detector as fallback if no detectors specified
+    if (Object.keys(detectors).length === 0) {
+      detectors['cpu'] = {
+        type: 'cpu',
+        num_threads: 3,
+      };
+    }
+
+    return detectors;
+  }
+
+  /**
+   * Generate single camera configuration
+   */
+  private static generateCameraConfig(
+    camera: CameraConfiguration,
+    _devices: HardwareDevice[]
+  ): any {
+    const cameraConfig: any = {
+      enabled: camera.enabled,
+      ffmpeg: {
+        inputs: [
+          {
+            path: camera.rtsp_url,
+            roles: [],
+          },
+        ],
+      },
+    };
+
+    // Add roles based on enabled features
+    const roles: string[] = [];
+    if (camera.detect_enabled) roles.push('detect');
+    if (camera.record_enabled) roles.push('record');
+    cameraConfig.ffmpeg.inputs[0].roles = roles;
+
+    // Add hardware decoder configuration
+    if (camera.hwaccel && camera.hwaccel !== 'none') {
+      cameraConfig.ffmpeg.hwaccel_args = this.getHwaccelArgsForType(camera.hwaccel);
+    }
+
+    // Add detection configuration
+    if (camera.detect_enabled) {
+      cameraConfig.detect = {
+        enabled: true,
+        width: camera.detect_width || camera.resolution.width,
+        height: camera.detect_height || camera.resolution.height,
+        fps: camera.detect_fps || 5,
+      };
+
+      // Always add detector assignment (cpu is the default)
+      const detectorType = camera.detector || 'cpu';
+      cameraConfig.detect.detector = detectorType;
+
+      // Add detection objects filter (default to person if not specified)
+      const objectsToTrack = camera.detect_objects && camera.detect_objects.length > 0
+        ? camera.detect_objects
+        : ['person'];
+
+      cameraConfig.objects = {
+        track: objectsToTrack,
+      };
+    }
+
+    // Add snapshot configuration
+    if (camera.snapshots_enabled) {
+      cameraConfig.snapshots = {
+        enabled: true,
+        timestamp: camera.snapshots_timestamp !== false,
+        bounding_box: camera.snapshots_bounding_box !== false,
+        crop: camera.snapshots_crop || false,
+        quality: camera.snapshots_quality || 85,
+      };
+    }
+
+    // Add recording configuration
+    if (camera.record_enabled) {
+      cameraConfig.record = {
+        enabled: true,
+        retain: {
+          days: camera.record_retain_days || 7,
+          mode: 'motion',
+        },
+        events: {
+          retain: {
+            default: camera.record_events_retain_days || 30,
+            mode: 'motion',
+          },
+        },
+      };
+    }
+
+    return cameraConfig;
+  }
+
+  /**
+   * Get hardware acceleration args for ffmpeg based on hwaccel type
+   */
+  private static getHwaccelArgsForType(hwaccelType: string): string {
+    switch (hwaccelType) {
+      case 'cuda':
+        // NVIDIA CUDA
+        return 'preset-nvidia-h264';
+      case 'qsv':
+        // Intel Quick Sync Video
+        return 'preset-intel-qsv-h264';
+      case 'vaapi':
+        // Video Acceleration API (Intel/AMD)
+        return 'preset-vaapi';
+      case 'videotoolbox':
+        // Apple VideoToolbox (macOS)
+        return 'preset-videotoolbox-h264';
+      case 'rkmpp':
+        // Rockchip Media Process Platform
+        return 'preset-rkmpp-h264';
+      case 'jetson':
+        // NVIDIA Jetson
+        return 'preset-jetson-h264';
+      default:
+        return '';
+    }
+  }
+
+  /**
+   * Convert config object to YAML string (clean format without empty values)
+   */
+  private static toYAML(obj: any, indent: number = 0): string {
+    const spaces = '  '.repeat(indent);
+    let yaml = '';
+
+    for (const [key, value] of Object.entries(obj)) {
+      // Skip null, undefined, and empty objects
+      if (value === null || value === undefined) {
+        continue;
+      }
+
+      // Skip empty objects
+      if (typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length === 0) {
+        continue;
+      }
+
+      if (typeof value === 'object' && !Array.isArray(value)) {
+        // Only add key if object has content
+        const childYaml = this.toYAML(value, indent + 1);
+        if (childYaml.trim()) {
+          yaml += `${spaces}${key}:\n`;
+          yaml += childYaml;
+        }
+      } else if (Array.isArray(value)) {
+        // Skip empty arrays
+        if (value.length === 0) {
+          continue;
+        }
+        yaml += `${spaces}${key}:\n`;
+        value.forEach((item) => {
+          if (typeof item === 'object' && item !== null) {
+            // Inline object format for array items
+            yaml += `${spaces}  - `;
+            const itemEntries = Object.entries(item);
+            if (itemEntries.length > 0) {
+              const [firstKey, firstValue] = itemEntries[0];
+              yaml += `${firstKey}: ${firstValue}\n`;
+              // Add remaining properties
+              for (let i = 1; i < itemEntries.length; i++) {
+                const [k, v] = itemEntries[i];
+                if (Array.isArray(v)) {
+                  yaml += `${spaces}    ${k}:\n`;
+                  v.forEach(arrItem => {
+                    yaml += `${spaces}      - ${arrItem}\n`;
+                  });
+                } else {
+                  yaml += `${spaces}    ${k}: ${v}\n`;
+                }
+              }
+            }
+          } else {
+            yaml += `${spaces}  - ${item}\n`;
+          }
+        });
+      } else if (typeof value === 'string') {
+        yaml += `${spaces}${key}: ${value}\n`;
+      } else {
+        yaml += `${spaces}${key}: ${value}\n`;
+      }
+    }
+
+    return yaml;
+  }
+
+  /**
+   * Get default config.yml template following official Frigate documentation
+   */
+  static getTemplate(): string {
+    return `# Frigate config.yml
+# Official documentation: https://docs.frigate.video
+# Generated by Frigate Configuration Tool
+
+mqtt:
+  enabled: False  # Set to True if using MQTT
+
+detectors:
+  cpu:
+    type: cpu
+    num_threads: 3
+
+cameras:
+  # Example camera configuration
+  # front_door:
+  #   enabled: True
+  #   ffmpeg:
+  #     inputs:
+  #       - path: rtsp://username:password@camera_ip:554/stream
+  #         roles:
+  #           - detect
+  #           - record
+  #   detect:
+  #     enabled: True
+  #     width: 1280
+  #     height: 720
+  #   objects:
+  #     track:
+  #       - person
+  #   record:
+  #     enabled: True
+  #     retain:
+  #       days: 10
+`;
+  }
+}

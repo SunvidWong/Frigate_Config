@@ -177,15 +177,15 @@ const YamlEditor: React.FC<YamlEditorProps> = ({
       </div>
 
       {/* Editor */}
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex overflow-auto">
         {/* Line numbers */}
-        <div className="flex-shrink-0 w-12 bg-gray-800 border-r border-gray-700 text-right">
+        <div className="flex-shrink-0 w-12 bg-gray-800 border-r border-gray-700 text-right overflow-y-hidden">
           <div
-            className="text-xs text-gray-500 pr-2 select-none overflow-hidden"
-            style={{ lineHeight: `${lineHeight}px`, minHeight }}
+            className="text-xs text-gray-500 pr-2 select-none pt-0"
+            style={{ lineHeight: `${lineHeight}px`, minHeight, paddingTop: 0 }}
           >
             {lineNumbers.map((lineNum, index) => (
-              <div key={index} className="hover:text-gray-300">
+              <div key={index} className="hover:text-gray-300" style={{ lineHeight: `${lineHeight}px` }}>
                 {lineNum}
               </div>
             ))}
@@ -193,7 +193,7 @@ const YamlEditor: React.FC<YamlEditorProps> = ({
         </div>
 
         {/* Textarea */}
-        <div className="flex-1 relative">
+        <div className="flex-1 relative overflow-auto">
           <textarea
             ref={textareaRef}
             value={content}
@@ -201,13 +201,14 @@ const YamlEditor: React.FC<YamlEditorProps> = ({
             onKeyDown={handleKeyDown}
             readOnly={readOnly}
             placeholder={placeholder}
-            className="absolute inset-0 w-full h-full p-0 bg-transparent text-gray-100 font-mono text-sm resize-none outline-none leading-5"
+            className="w-full h-full p-0 bg-transparent text-gray-100 font-mono text-sm resize-none outline-none"
             style={{
               padding: '0 12px',
               lineHeight: `${lineHeight}px`,
               minHeight,
               tabSize: 2,
-              scrollPadding: '20px'
+              scrollPadding: '0',
+              display: 'block'
             }}
             spellCheck={false}
           />

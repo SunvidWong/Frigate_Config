@@ -2,17 +2,70 @@
 // Complete CRUD interface for camera management with hardware assignment
 
 import React, { useState, useEffect } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { useTauriCommand } from '../hooks/useTauriCommand'
 import Button from '../components/Button'
 import Card from '../components/Card'
 import Modal from '../components/Modal'
 import Input from '../components/Input'
 import type { CameraConfiguration, HardwareDevice, ValidationStatus } from '../types'
+import { FrigateConfigGenerator } from '../services/frigateConfigGenerator'
+
+// Interface for pre-filled camera data from discovery page
+interface PrefillCameraData {
+  ip: string;
+  rtsp_url: string;
+  brand: string;
+  device_type: string;
+  ports: number[];
+}
 
 // Generate UUID for new cameras
 const generateId = () => `cam-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
 
+// Frigate official supported objects
+const FRIGATE_OBJECTS = [
+  { value: 'person', label: '人 (Person)', icon: '🧍' },
+  { value: 'car', label: '汽车 (Car)', icon: '🚗' },
+  { value: 'dog', label: '狗 (Dog)', icon: '🐕' },
+  { value: 'cat', label: '猫 (Cat)', icon: '🐈' },
+  { value: 'bird', label: '鸟 (Bird)', icon: '🐦' },
+  { value: 'bicycle', label: '自行车 (Bicycle)', icon: '🚴' },
+  { value: 'motorcycle', label: '摩托车 (Motorcycle)', icon: '🏍️' },
+  { value: 'bus', label: '公交车 (Bus)', icon: '🚌' },
+  { value: 'truck', label: '卡车 (Truck)', icon: '🚛' },
+  { value: 'bear', label: '熊 (Bear)', icon: '🐻' },
+  { value: 'deer', label: '鹿 (Deer)', icon: '🦌' },
+  { value: 'horse', label: '马 (Horse)', icon: '🐴' },
+  { value: 'cow', label: '牛 (Cow)', icon: '🐄' },
+  { value: 'sheep', label: '羊 (Sheep)', icon: '🐑' },
+]
+
+// Hardware acceleration options
+const HWACCEL_OPTIONS = [
+  { value: 'none', label: '无 (CPU)', description: '纯CPU解码' },
+  { value: 'cuda', label: 'NVIDIA CUDA', description: 'NVIDIA GPU硬件解码' },
+  { value: 'qsv', label: 'Intel Quick Sync', description: 'Intel集成显卡硬件解码' },
+  { value: 'vaapi', label: 'VAAPI', description: 'Linux通用硬件解码 (Intel/AMD)' },
+  { value: 'videotoolbox', label: 'VideoToolbox', description: 'macOS硬件解码' },
+  { value: 'rkmpp', label: 'Rockchip MPP', description: 'Rockchip硬件解码' },
+  { value: 'jetson', label: 'NVIDIA Jetson', description: 'Jetson平台硬件解码' },
+]
+
+// AI Detector options
+const DETECTOR_OPTIONS = [
+  { value: 'cpu', label: 'CPU', description: '使用CPU进行AI检测' },
+  { value: 'tensorrt', label: 'TensorRT (NVIDIA)', description: 'NVIDIA GPU加速' },
+  { value: 'edgetpu', label: 'Coral EdgeTPU', description: 'Google Coral TPU' },
+  { value: 'openvino', label: 'OpenVINO (Intel)', description: 'Intel神经计算棒/集显' },
+  { value: 'rknn', label: 'RKNN (Rockchip)', description: 'Rockchip NPU' },
+  { value: 'hailo8', label: 'Hailo-8', description: 'Hailo-8 AI加速器' },
+]
+
 const CamerasPage: React.FC = () => {
+  const location = useLocation();
+  const navigate = useNavigate();
+
   // State
   const [cameras, setCameras] = useState<CameraConfiguration[]>([])
   const [devices, setDevices] = useState<HardwareDevice[]>([])
@@ -33,7 +86,7 @@ const CamerasPage: React.FC = () => {
   // API calls
   const { execute: fetchHardware } = useTauriCommand<HardwareDevice[]>('detect_hardware')
 
-  // Load hardware devices on mount
+  // Load hardware devices and saved cameras on mount
   useEffect(() => {
     fetchHardware().then(data => {
       if (data) {
@@ -41,7 +94,70 @@ const CamerasPage: React.FC = () => {
         setDevices(data.filter(d => d.type === 'gpu' || d.type === 'tpu'))
       }
     })
+
+    // Load cameras from localStorage
+    const savedCameras = localStorage.getItem('cameras')
+    if (savedCameras) {
+      try {
+        const parsed = JSON.parse(savedCameras)
+        setCameras(parsed)
+      } catch (e) {
+        console.error('Failed to load saved cameras:', e)
+      }
+    }
   }, [])
+
+  // Check for pre-filled camera data from discovery page
+  useEffect(() => {
+    const state = location.state as { prefillCamera?: PrefillCameraData } | null;
+    if (state?.prefillCamera) {
+      const prefill = state.prefillCamera;
+
+      // Generate camera name from IP
+      const cameraName = `camera_${prefill.ip.replace(/\./g, '_')}`;
+
+      // Pre-fill form with discovered camera data
+      setFormData({
+        id: generateId(),
+        name: cameraName,
+        rtsp_url: prefill.rtsp_url,
+        enabled: true,
+        hardware_device_id: undefined,
+        resolution: { width: 1920, height: 1080 },
+        fps: 10,
+        hwaccel: 'none',
+        detector: 'cpu',
+        detect_enabled: true,
+        detect_objects: ['person', 'car', 'dog', 'cat'],
+        detect_width: 1280,
+        detect_height: 720,
+        detect_fps: 5,
+        record_enabled: true,
+        record_retain_days: 7,
+        record_events_retain_days: 30,
+        snapshots_enabled: true,
+        snapshots_timestamp: true,
+        snapshots_bounding_box: true,
+        snapshots_crop: false,
+        snapshots_quality: 85,
+        validation_status: 'valid',
+        validation_errors: [],
+      });
+
+      setFormErrors([]);
+      setShowAddModal(true);
+
+      // Clear the navigation state to prevent re-opening on refresh
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state])
+
+  // Save cameras to localStorage whenever they change
+  useEffect(() => {
+    if (cameras.length > 0) {
+      localStorage.setItem('cameras', JSON.stringify(cameras))
+    }
+  }, [cameras])
 
   // Filter cameras
   useEffect(() => {
@@ -85,9 +201,21 @@ const CamerasPage: React.FC = () => {
       hardware_device_id: undefined,
       resolution: { width: 1920, height: 1080 },
       fps: 10,
+      hwaccel: 'none',
+      detector: 'cpu',
       detect_enabled: true,
+      detect_objects: ['person', 'car', 'dog', 'cat'],
+      detect_width: 1280,
+      detect_height: 720,
+      detect_fps: 5,
       record_enabled: true,
+      record_retain_days: 7,
+      record_events_retain_days: 30,
       snapshots_enabled: true,
+      snapshots_timestamp: true,
+      snapshots_bounding_box: true,
+      snapshots_crop: false,
+      snapshots_quality: 85,
       validation_status: 'valid',
       validation_errors: [],
     })
@@ -192,6 +320,22 @@ const CamerasPage: React.FC = () => {
     )
   }
 
+  const handleGenerateConfig = () => {
+    // Generate YAML configuration
+    const yamlConfig = FrigateConfigGenerator.generateConfig(cameras, devices, 7);
+
+    // Save to localStorage for the config editor
+    localStorage.setItem('generated_config', yamlConfig);
+
+    // Navigate to config editor
+    navigate('/config-editor', {
+      state: {
+        generatedConfig: yamlConfig,
+        source: 'cameras'
+      }
+    });
+  }
+
   return (
     <div className="p-6 max-w-7xl mx-auto">
       {/* Header */}
@@ -206,6 +350,14 @@ const CamerasPage: React.FC = () => {
           <div className="flex items-center space-x-4">
             <Button onClick={handleAddCamera} icon="➕">
               添加相机
+            </Button>
+            <Button
+              onClick={handleGenerateConfig}
+              variant="secondary"
+              disabled={cameras.length === 0}
+              icon="📝"
+            >
+              生成配置
             </Button>
             <span className="text-sm text-gray-600">
               共 <span className="font-semibold">{filteredCameras.length}</span> 台相机
@@ -432,56 +584,168 @@ const CamerasPage: React.FC = () => {
             <p className="text-xs text-gray-500 mt-1">推荐: 5-15 FPS 用于检测</p>
           </div>
 
-          {/* Hardware Assignment */}
+          {/* Hardware Decoder */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              硬件加速器（可选）
+              硬件解码器
             </label>
             <select
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              value={formData.hardware_device_id || ''}
-              onChange={(e) => setFormData({
-                ...formData,
-                hardware_device_id: e.target.value || undefined
-              })}
+              value={formData.hwaccel || 'none'}
+              onChange={(e) => setFormData({ ...formData, hwaccel: e.target.value as any })}
             >
-              <option value="">无 (CPU)</option>
-              {devices.map(device => (
-                <option key={device.id} value={device.id}>
-                  {device.name} ({device.type.toUpperCase()})
+              {HWACCEL_OPTIONS.map(opt => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label} - {opt.description}
                 </option>
               ))}
             </select>
+            <p className="mt-1 text-xs text-gray-500">
+              选择视频流解码硬件
+            </p>
+          </div>
+
+          {/* AI Detector */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              AI检测加速器
+            </label>
+            <select
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              value={formData.detector || 'cpu'}
+              onChange={(e) => setFormData({ ...formData, detector: e.target.value as any })}
+            >
+              {DETECTOR_OPTIONS.map(opt => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label} - {opt.description}
+                </option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs text-gray-500">
+              选择AI对象检测硬件加速器
+            </p>
+          </div>
+
+          {/* Detection Objects */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              检测对象
+            </label>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-48 overflow-y-auto border border-gray-200 rounded-lg p-3">
+              {FRIGATE_OBJECTS.map(obj => (
+                <label key={obj.value} className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-1 rounded">
+                  <input
+                    type="checkbox"
+                    checked={formData.detect_objects?.includes(obj.value) || false}
+                    onChange={(e) => {
+                      const current = formData.detect_objects || [];
+                      const updated = e.target.checked
+                        ? [...current, obj.value]
+                        : current.filter(o => o !== obj.value);
+                      setFormData({ ...formData, detect_objects: updated });
+                    }}
+                    className="w-4 h-4 rounded text-blue-600 border-gray-300 focus:ring-blue-500"
+                  />
+                  <span className="text-sm text-gray-700">
+                    <span className="mr-1">{obj.icon}</span>
+                    {obj.label}
+                  </span>
+                </label>
+              ))}
+            </div>
+            <p className="mt-1 text-xs text-gray-500">
+              选择要检测的对象类型
+            </p>
+          </div>
+
+          {/* Detection Resolution & FPS */}
+          <div className="grid grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">检测宽度</label>
+              <Input
+                type="number"
+                value={formData.detect_width || 1280}
+                onChange={(e) => setFormData({ ...formData, detect_width: parseInt(e.target.value) })}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">检测高度</label>
+              <Input
+                type="number"
+                value={formData.detect_height || 720}
+                onChange={(e) => setFormData({ ...formData, detect_height: parseInt(e.target.value) })}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">检测FPS</label>
+              <Input
+                type="number"
+                min="1"
+                max="15"
+                value={formData.detect_fps || 5}
+                onChange={(e) => setFormData({ ...formData, detect_fps: parseInt(e.target.value) })}
+              />
+            </div>
+          </div>
+
+          {/* Recording Retention */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                连续录像保留天数
+              </label>
+              <Input
+                type="number"
+                min="1"
+                max="365"
+                value={formData.record_retain_days || 7}
+                onChange={(e) => setFormData({ ...formData, record_retain_days: parseInt(e.target.value) })}
+              />
+              <p className="mt-1 text-xs text-gray-500">默认7天</p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                事件录像保留天数
+              </label>
+              <Input
+                type="number"
+                min="1"
+                max="365"
+                value={formData.record_events_retain_days || 30}
+                onChange={(e) => setFormData({ ...formData, record_events_retain_days: parseInt(e.target.value) })}
+              />
+              <p className="mt-1 text-xs text-gray-500">默认30天</p>
+            </div>
           </div>
 
           {/* Feature Toggles */}
           <div className="space-y-2">
-            <label className="flex items-center">
+            <label className="flex items-center cursor-pointer">
               <input
                 type="checkbox"
                 checked={formData.detect_enabled ?? true}
                 onChange={(e) => setFormData({ ...formData, detect_enabled: e.target.checked })}
-                className="rounded text-blue-600"
+                className="w-4 h-4 rounded text-blue-600 border-gray-300 focus:ring-blue-500"
               />
-              <span className="ml-2 text-sm">启用对象检测</span>
+              <span className="ml-2 text-sm text-gray-700 font-medium">启用对象检测</span>
             </label>
-            <label className="flex items-center">
+            <label className="flex items-center cursor-pointer">
               <input
                 type="checkbox"
                 checked={formData.record_enabled ?? true}
                 onChange={(e) => setFormData({ ...formData, record_enabled: e.target.checked })}
-                className="rounded text-blue-600"
+                className="w-4 h-4 rounded text-blue-600 border-gray-300 focus:ring-blue-500"
               />
-              <span className="ml-2 text-sm">启用视频录制</span>
+              <span className="ml-2 text-sm text-gray-700 font-medium">启用视频录制</span>
             </label>
-            <label className="flex items-center">
+            <label className="flex items-center cursor-pointer">
               <input
                 type="checkbox"
                 checked={formData.snapshots_enabled ?? true}
                 onChange={(e) => setFormData({ ...formData, snapshots_enabled: e.target.checked })}
-                className="rounded text-blue-600"
+                className="w-4 h-4 rounded text-blue-600 border-gray-300 focus:ring-blue-500"
               />
-              <span className="ml-2 text-sm">启用快照保存</span>
+              <span className="ml-2 text-sm text-gray-700 font-medium">启用快照保存</span>
             </label>
           </div>
 

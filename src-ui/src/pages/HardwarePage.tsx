@@ -84,24 +84,22 @@ const HardwarePage: React.FC = () => {
     }
   }
 
-  const getDeviceIcon = (type: DeviceType | 'cpu'): string => {
-    const icons: Record<string, string> = {
+  const getDeviceIcon = (type: DeviceType): string => {
+    const icons: Record<DeviceType, string> = {
       gpu: '🎮',
       tpu: '🧠',
       camera: '📷',
       capture_card: '📹',
-      cpu: '⚠️',
     }
     return icons[type] || '❓'
   }
 
-  const getDeviceTypeLabel = (type: DeviceType | 'cpu'): string => {
-    const labels: Record<string, string> = {
+  const getDeviceTypeLabel = (type: DeviceType): string => {
+    const labels: Record<DeviceType, string> = {
       gpu: 'GPU',
       tpu: 'TPU',
       camera: '相机',
       capture_card: '采集卡',
-      cpu: 'CPU-Only',
     }
     return labels[type] || type
   }
@@ -244,7 +242,7 @@ const HardwarePage: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {filteredDevices.map((device) => {
           // Check if this is a CPU-only warning device
-          const isCPUWarning = device.id === 'cpu-only-warning' || device.type === 'cpu';
+          const isCPUWarning = device.id === 'cpu-only-warning';
           const cardClassName = isCPUWarning
             ? "cursor-pointer hover:shadow-lg transition-shadow border-2 border-yellow-300 bg-yellow-50"
             : "cursor-pointer hover:shadow-lg transition-shadow";

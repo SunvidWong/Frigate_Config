@@ -52,6 +52,9 @@ uuid = { version = "1.6", features = ["v4", "serde"] }
 # Async utilities for camera discovery
 futures = "0.3"
 
+# Network interface discovery
+if-addrs = "0.12"
+
 [features]
 default = ["custom-protocol"]
 custom-protocol = ["tauri/custom-protocol"]

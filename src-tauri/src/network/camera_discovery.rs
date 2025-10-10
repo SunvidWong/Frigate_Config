@@ -246,11 +246,53 @@ pub async fn scan_network(config: ScanConfig) -> Result<Vec<DiscoveredCamera>, S
     Ok(cameras)
 }
 
-/// Get local network interface IP
+/// Get local network interface IP (excluding virtual interfaces)
 pub fn get_local_ip() -> Option<String> {
-    use std::net::UdpSocket;
+    use if_addrs::{get_if_addrs, IfAddr};
 
-    // Connect to a remote address to discover local IP
+    // Get all network interfaces
+    if let Ok(interfaces) = get_if_addrs() {
+        for iface in interfaces {
+            // Skip loopback and virtual interfaces
+            if iface.is_loopback() {
+                continue;
+            }
+
+            // Skip known virtual interface names
+            let name = iface.name.to_lowercase();
+            if name.contains("docker") ||
+               name.contains("vbox") ||
+               name.contains("vmware") ||
+               name.contains("veth") ||
+               name.contains("virbr") ||
+               name.contains("tun") ||
+               name.contains("tap") {
+                continue;
+            }
+
+            // Get IPv4 address from physical interface
+            if let IfAddr::V4(v4_addr) = iface.addr {
+                let ip = v4_addr.ip;
+
+                // Skip non-private IP ranges
+                // Accept: 192.168.x.x, 10.x.x.x, 172.16-31.x.x
+                let octets = ip.octets();
+                let is_private = match octets[0] {
+                    192 if octets[1] == 168 => true,
+                    10 => true,
+                    172 if (16..=31).contains(&octets[1]) => true,
+                    _ => false,
+                };
+
+                if is_private {
+                    return Some(ip.to_string());
+                }
+            }
+        }
+    }
+
+    // Fallback: use UDP socket method
+    use std::net::UdpSocket;
     let socket = UdpSocket::bind("0.0.0.0:0").ok()?;
     socket.connect("8.8.8.8:80").ok()?;
     socket.local_addr().ok().map(|addr| addr.ip().to_string())

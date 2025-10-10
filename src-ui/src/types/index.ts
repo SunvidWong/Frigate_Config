@@ -29,6 +29,9 @@ export interface DetectionResult {
   detected_at: string
 }
 
+export type HwAccelType = 'none' | 'vaapi' | 'cuda' | 'qsv' | 'videotoolbox' | 'rkmpp' | 'jetson'
+export type DetectorType = 'cpu' | 'tensorrt' | 'edgetpu' | 'openvino' | 'rknn' | 'hailo8'
+
 export interface CameraConfiguration {
   id: string
   name: string
@@ -40,12 +43,40 @@ export interface CameraConfiguration {
     height: number
   }
   fps: number
+
+  // Hardware acceleration
   hardware_device_id?: string
-  hwaccel?: 'vaapi' | 'cuda' | 'qsv' | 'videotoolbox'
+  hwaccel?: HwAccelType
+  hwaccel_device?: string  // Device path or index
+
+  // AI Detection
+  detector?: DetectorType
+  detector_device?: string
+
+  // Detection settings
   detect_enabled: boolean
+  detect_objects?: string[]  // Objects to detect: person, car, dog, cat, etc.
+  detect_width?: number
+  detect_height?: number
+  detect_fps?: number
+
+  // Recording settings
   record_enabled: boolean
+  record_retain_days?: number
+  record_events_retain_days?: number
+
+  // Snapshots
   snapshots_enabled: boolean
+  snapshots_timestamp?: boolean
+  snapshots_bounding_box?: boolean
+  snapshots_crop?: boolean
+  snapshots_quality?: number
+
+  // Advanced
   custom_ffmpeg_args?: string
+  motion_mask?: string[]
+  zones?: any[]
+
   created_at: string
   updated_at: string
   manually_edited: boolean

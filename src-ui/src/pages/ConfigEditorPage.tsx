@@ -2,13 +2,16 @@
 // Main interface for editing Frigate configuration files
 
 import React, { useState, useEffect } from 'react'
-import { FileText, Save, Upload, Download, History, CheckCircle, AlertCircle, Eye, EyeOff } from 'lucide-react'
+import { useLocation } from 'react-router-dom'
+import { FileText, Save, Upload, Download, History, CheckCircle, AlertCircle, Eye, EyeOff, Wand2, Trash2 } from 'lucide-react'
 import { configService, ConfigurationData, SaveConfigResponse, ValidationResult } from '../services/configService'
 import YamlEditor from '../components/YamlEditor'
 import ValidationPanel from '../components/ValidationPanel'
 import SnapshotPanel from '../components/SnapshotPanel'
+import { ConfigFixer } from '../services/configFixer'
 
 const ConfigEditorPage: React.FC = () => {
+  const location = useLocation()
   const [configData, setConfigData] = useState<ConfigurationData | null>(null)
   const [yamlContent, setYamlContent] = useState<string>('')
   const [isLoading, setIsLoading] = useState<boolean>(false)
@@ -20,8 +23,40 @@ const ConfigEditorPage: React.FC = () => {
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState<boolean>(false)
 
   useEffect(() => {
-    // Load default config or recent config on mount
-    loadDefaultConfig()
+    // Check for generated config from cameras page
+    const state = location.state as { generatedConfig?: string; source?: string } | null
+    const savedConfig = localStorage.getItem('generated_config')
+    const persistedConfig = localStorage.getItem('current_config')
+
+    if (state?.generatedConfig) {
+      setYamlContent(state.generatedConfig)
+      setCurrentFilePath('frigate.yml')
+      setSaveStatus('从相机配置生成')
+      setHasUnsavedChanges(true)
+      // Save to persistent storage
+      localStorage.setItem('current_config', state.generatedConfig)
+      // Clear navigation state
+      window.history.replaceState({}, document.title)
+      // Clear temporary storage
+      localStorage.removeItem('generated_config')
+    } else if (savedConfig) {
+      setYamlContent(savedConfig)
+      setCurrentFilePath('frigate.yml')
+      setSaveStatus('从相机配置生成')
+      setHasUnsavedChanges(true)
+      // Save to persistent storage
+      localStorage.setItem('current_config', savedConfig)
+      localStorage.removeItem('generated_config')
+    } else if (persistedConfig) {
+      // Load previously saved config
+      setYamlContent(persistedConfig)
+      setCurrentFilePath('frigate.yml')
+      setSaveStatus('已加载保存的配置')
+      setHasUnsavedChanges(false)
+    } else {
+      // Load default config or recent config on mount
+      loadDefaultConfig()
+    }
   }, [])
 
   useEffect(() => {
@@ -151,12 +186,44 @@ const ConfigEditorPage: React.FC = () => {
   const handleYamlChange = (content: string) => {
     setYamlContent(content)
     setHasUnsavedChanges(true)
+    // Auto-save to localStorage for persistence
+    localStorage.setItem('current_config', content)
   }
 
   const handleSnapshotRestore = (snapshotYaml: string) => {
     setYamlContent(snapshotYaml)
     setHasUnsavedChanges(true)
     setShowSnapshots(false)
+  }
+
+  const handleAutoFix = (fixedContent: string, changes: string[]) => {
+    setYamlContent(fixedContent)
+    setHasUnsavedChanges(true)
+    setSaveStatus(`自动修复: ${changes.join(', ')}`)
+    // Re-validate after fixing
+    setTimeout(() => validateConfig(), 100)
+  }
+
+  const handleQuickFix = () => {
+    if (!yamlContent) return
+    const { fixed, changes } = ConfigFixer.autoFix(yamlContent)
+    handleAutoFix(fixed, changes)
+  }
+
+  const handleDeleteConfig = () => {
+    const confirmed = confirm('确定要删除当前配置吗？此操作无法撤销。')
+    if (!confirmed) return
+
+    // Clear all storage
+    localStorage.removeItem('current_config')
+    localStorage.removeItem('generated_config')
+
+    // Reset state
+    setYamlContent('')
+    setCurrentFilePath('')
+    setHasUnsavedChanges(false)
+    setSaveStatus('配置已删除')
+    setValidationResult(null)
   }
 
   const isConfigValid = validationResult?.valid ?? true
@@ -240,6 +307,26 @@ const ConfigEditorPage: React.FC = () => {
                 <Download className="h-4 w-4 mr-2" />
                 导出
               </button>
+
+              <button
+                onClick={handleQuickFix}
+                disabled={!yamlContent.trim() || isLoading}
+                className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50"
+                title="一键修复配置问题"
+              >
+                <Wand2 className="h-4 w-4 mr-2" />
+                一键修复
+              </button>
+
+              <button
+                onClick={handleDeleteConfig}
+                disabled={!yamlContent.trim() || isLoading}
+                className="inline-flex items-center px-3 py-2 border border-red-300 shadow-sm text-sm leading-4 font-medium rounded-md text-red-700 bg-white hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50"
+                title="删除当前配置"
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                删除配置
+              </button>
             </div>
 
             <div className="flex items-center space-x-2">
@@ -287,6 +374,8 @@ const ConfigEditorPage: React.FC = () => {
               <ValidationPanel
                 validationResult={validationResult}
                 onRefresh={validateConfig}
+                yamlContent={yamlContent}
+                onAutoFix={handleAutoFix}
               />
             )}
 

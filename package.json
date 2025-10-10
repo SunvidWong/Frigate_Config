@@ -3,14 +3,17 @@
   "private": true,
   "version": "0.1.0",
   "scripts": {
-    "tauri": "cd src-ui && npm run tauri",
-    "dev": "cd src-ui && npm run tauri dev",
-    "build": "cd src-ui && npm run tauri build",
+    "tauri": "tauri",
+    "dev": "tauri dev",
+    "build": "tauri build",
     "test": "cargo test && cd agent && go test ./... && cd ../src-ui && npm test",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:debug": "playwright test --debug",
     "format": "cargo fmt && cd agent && go fmt ./... && cd ../src-ui && npm run format",
     "lint": "cargo clippy && cd src-ui && npm run lint"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^1.6.3"
   }
 }

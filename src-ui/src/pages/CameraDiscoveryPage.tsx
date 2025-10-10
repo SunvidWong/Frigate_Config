@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { invoke } from '@tauri-apps/api';
+import { useNavigate } from 'react-router-dom';
 import { Camera, Wifi, Play, RefreshCw, AlertCircle, Check, ExternalLink } from 'lucide-react';
 
 interface DiscoveredCamera {
@@ -13,13 +14,93 @@ interface DiscoveredCamera {
   last_seen: number;
 }
 
+interface CameraBrand {
+  name: string;
+  paths: string[];
+  defaultPort: number;
+}
+
+const CAMERA_BRANDS: CameraBrand[] = [
+  {
+    name: '海康威视 (Hikvision)',
+    paths: [
+      '/Streaming/Channels/101',
+      '/Streaming/Channels/102',
+      '/h264/ch1/main/av_stream',
+      '/h264/ch1/sub/av_stream',
+    ],
+    defaultPort: 554,
+  },
+  {
+    name: '大华 (Dahua)',
+    paths: [
+      '/cam/realmonitor?channel=1&subtype=0',
+      '/cam/realmonitor?channel=1&subtype=1',
+      '/live/ch00_0',
+      '/live/ch00_1',
+    ],
+    defaultPort: 554,
+  },
+  {
+    name: 'TP-Link',
+    paths: [
+      '/stream1',
+      '/stream2',
+      '/h264',
+      '/live/main',
+    ],
+    defaultPort: 554,
+  },
+  {
+    name: '小米 (Xiaomi)',
+    paths: [
+      '/live/ch00_0',
+      '/live/ch00_1',
+    ],
+    defaultPort: 8554,
+  },
+  {
+    name: '萤石 (EZVIZ)',
+    paths: [
+      '/h264/ch1/main/av_stream',
+      '/h264/ch1/sub/av_stream',
+    ],
+    defaultPort: 554,
+  },
+  {
+    name: 'Reolink',
+    paths: [
+      '/h264Preview_01_main',
+      '/h264Preview_01_sub',
+    ],
+    defaultPort: 554,
+  },
+  {
+    name: '通用 ONVIF',
+    paths: [
+      '/onvif1',
+      '/onvif/profile1',
+      '/stream1',
+    ],
+    defaultPort: 554,
+  },
+  {
+    name: '自定义',
+    paths: [],
+    defaultPort: 554,
+  },
+];
+
 const CameraDiscoveryPage: React.FC = () => {
+  const navigate = useNavigate();
   const [networkRange, setNetworkRange] = useState('');
   const [customPorts, setCustomPorts] = useState('554,80,8000,8080,8554');
   const [isScanning, setIsScanning] = useState(false);
   const [cameras, setCameras] = useState<DiscoveredCamera[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [scanProgress, setScanProgress] = useState(0);
+  const [selectedBrand, setSelectedBrand] = useState<{ [key: string]: number }>({});
+  const [customPath, setCustomPath] = useState<{ [key: string]: string }>({});
 
   // Load local network IP on mount
   React.useEffect(() => {
@@ -110,6 +191,40 @@ const CameraDiscoveryPage: React.FC = () => {
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
+  };
+
+  const generateRtspUrl = (cameraIp: string, cameraIndex: string) => {
+    const brandIndex = selectedBrand[cameraIndex] || 0;
+    const brand = CAMERA_BRANDS[brandIndex];
+
+    if (brand.name === '自定义') {
+      const path = customPath[cameraIndex] || '/';
+      return `rtsp://${cameraIp}:${brand.defaultPort}${path}`;
+    }
+
+    // Use first path as default
+    const path = brand.paths[0] || '/stream1';
+    return `rtsp://${cameraIp}:${brand.defaultPort}${path}`;
+  };
+
+  const handleAddToConfig = (camera: DiscoveredCamera, cameraIndex: number) => {
+    const cameraKey = `camera-${cameraIndex}`;
+    const brandIndex = selectedBrand[cameraKey] || 0;
+    const brand = CAMERA_BRANDS[brandIndex];
+    const rtspUrl = generateRtspUrl(camera.ip, cameraKey);
+
+    // Navigate to cameras page with pre-filled data
+    navigate('/cameras', {
+      state: {
+        prefillCamera: {
+          ip: camera.ip,
+          rtsp_url: rtspUrl,
+          brand: brand.name,
+          device_type: camera.device_type,
+          ports: camera.ports,
+        }
+      }
+    });
   };
 
   return (
@@ -275,7 +390,7 @@ const CameraDiscoveryPage: React.FC = () => {
                       <div className="space-y-1">
                         {camera.rtsp_urls.slice(0, 3).map((url, idx) => (
                           <div key={idx} className="flex items-center gap-2">
-                            <code className="flex-1 text-xs bg-gray-100 px-2 py-1 rounded">
+                            <code className="flex-1 text-xs bg-gray-800 text-gray-100 px-2 py-1 rounded font-mono">
                               {url}
                             </code>
                             <button
@@ -310,18 +425,77 @@ const CameraDiscoveryPage: React.FC = () => {
                     </div>
                   )}
 
-                  {/* Add to Config Button */}
+                  {/* Add to Config Button with Brand Selection */}
                   <div className="mt-4 pt-4 border-t border-gray-200">
-                    <button
-                      className="inline-flex items-center px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
-                      onClick={() => {
-                        // TODO: Navigate to camera config page with this camera
-                        alert(`添加摄像头功能即将推出！\nIP: ${camera.ip}`);
-                      }}
-                    >
-                      <Camera className="w-4 h-4 mr-2" />
-                      添加到配置
-                    </button>
+                    <div className="space-y-3">
+                      {/* Brand Selector */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          摄像头品牌
+                        </label>
+                        <select
+                          value={selectedBrand[`camera-${index}`] || 0}
+                          onChange={(e) => setSelectedBrand({
+                            ...selectedBrand,
+                            [`camera-${index}`]: parseInt(e.target.value)
+                          })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm"
+                        >
+                          {CAMERA_BRANDS.map((brand, idx) => (
+                            <option key={idx} value={idx}>
+                              {brand.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* Show RTSP paths for selected brand */}
+                      {CAMERA_BRANDS[selectedBrand[`camera-${index}`] || 0].paths.length > 0 && (
+                        <div className="bg-blue-50 rounded-md p-3">
+                          <p className="text-xs font-medium text-blue-900 mb-1">
+                            该品牌常用 RTSP 路径：
+                          </p>
+                          <div className="space-y-1">
+                            {CAMERA_BRANDS[selectedBrand[`camera-${index}`] || 0].paths.map((path, pidx) => (
+                              <code key={pidx} className="block text-xs text-blue-700 font-mono">
+                                rtsp://{camera.ip}:{CAMERA_BRANDS[selectedBrand[`camera-${index}`] || 0].defaultPort}{path}
+                              </code>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Custom path input for custom brand */}
+                      {CAMERA_BRANDS[selectedBrand[`camera-${index}`] || 0].name === '自定义' && (
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            自定义 RTSP 路径
+                          </label>
+                          <input
+                            type="text"
+                            value={customPath[`camera-${index}`] || '/'}
+                            onChange={(e) => setCustomPath({
+                              ...customPath,
+                              [`camera-${index}`]: e.target.value
+                            })}
+                            placeholder="/stream1"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm font-mono"
+                          />
+                          <p className="mt-1 text-xs text-gray-500">
+                            例如: /stream1, /h264/ch1/main/av_stream
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Add to Config Button */}
+                      <button
+                        className="w-full inline-flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                        onClick={() => handleAddToConfig(camera, index)}
+                      >
+                        <Camera className="w-4 h-4 mr-2" />
+                        添加到配置
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}
