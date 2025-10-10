@@ -62,7 +62,9 @@ docker pull sunvidwong/frigate-config-web:latest
 
 docker run -d \
   --name frigate-config-web \
-  -p 8080:80 \
+  -p 1420:1420 \
+  -e FRIGATE_HTTP_MODE=true \
+  -e RUST_LOG=info \
   --restart unless-stopped \
   sunvidwong/frigate-config-web:latest
 ```
@@ -77,7 +79,10 @@ services:
     image: sunvidwong/frigate-config-web:latest
     container_name: frigate-config-web
     ports:
-      - "8080:80"
+      - "1420:1420"
+    environment:
+      - FRIGATE_HTTP_MODE=true
+      - RUST_LOG=info
     restart: unless-stopped
 ```
 
@@ -176,7 +181,9 @@ docker rm frigate-config-web
 # 启动新容器
 docker run -d \
   --name frigate-config-web \
-  -p 8080:80 \
+  -p 1420:1420 \
+  -e FRIGATE_HTTP_MODE=true \
+  -e RUST_LOG=info \
   --restart unless-stopped \
   sunvidwong/frigate-config-web:latest
 

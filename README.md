@@ -97,11 +97,14 @@ Install Microsoft Visual Studio C++ Build Tools
 创建 `docker-compose.yml` 文件：
 ```yaml
 services:
-  frigate-config-web:
+  frigate-config-tool:
     image: ghcr.io/sunvidwong/frigate_config:latest
-    container_name: frigate-config-web
+    container_name: frigate-config-tool
     ports:
-      - 8080:80
+      - "1420:1420"
+    environment:
+      - FRIGATE_HTTP_MODE=true
+      - RUST_LOG=info
     restart: unless-stopped
 ```
 
@@ -110,15 +113,17 @@ services:
 docker compose up -d
 ```
 
-访问：http://localhost:8080
+访问：http://localhost:1420
 
 ---
 
 **或使用 docker run**
 ```bash
 docker run -d \
-  --name frigate-config-web \
-  -p 8080:80 \
+  --name frigate-config-tool \
+  -p 1420:1420 \
+  -e FRIGATE_HTTP_MODE=true \
+  -e RUST_LOG=info \
   --restart unless-stopped \
   ghcr.io/sunvidwong/frigate_config:latest
 ```
@@ -127,7 +132,7 @@ docker run -d \
 ```bash
 docker compose down
 # 或
-docker stop frigate-config-web
+docker stop frigate-config-tool
 ```
 
 ---

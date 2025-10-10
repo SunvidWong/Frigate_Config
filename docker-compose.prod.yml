@@ -1,7 +1,10 @@
 services:
-  frigate-config-web:
+  frigate-config-tool:
     image: ghcr.io/sunvidwong/frigate_config:latest
-    container_name: frigate-config-web
+    container_name: frigate-config-tool
     ports:
-      - 8080:80
+      - "1420:1420"
+    environment:
+      - FRIGATE_HTTP_MODE=true
+      - RUST_LOG=info
     restart: unless-stopped
