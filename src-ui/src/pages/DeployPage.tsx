@@ -39,6 +39,24 @@ interface DeploymentResponse {
   stderr: string
   exit_code: number | null
   deployment_time: string
+  warnings: string[]
+}
+
+interface DeviceValidationResult {
+  device_path: string
+  device_name: string
+  device_type: string
+  exists: boolean
+  message: string
+}
+
+interface DeviceValidationResponse {
+  total_devices: number
+  valid_count: number
+  invalid_count: number
+  valid_devices: DeviceValidationResult[]
+  invalid_devices: DeviceValidationResult[]
+  warnings: string[]
 }
 
 interface HealthCheckResponse {
@@ -78,6 +96,8 @@ const DeployPage: React.FC = () => {
   const [composeYaml, setComposeYaml] = useState<string>('')
   const [isDeploying, setIsDeploying] = useState(false)
   const [deploymentStep, setDeploymentStep] = useState<'idle' | 'validating' | 'deploying' | 'health_check' | 'completed' | 'failed'>('idle')
+  const [deviceValidation, setDeviceValidation] = useState<DeviceValidationResponse | null>(null)
+  const [showDeviceWarnings, setShowDeviceWarnings] = useState(false)
 
   // Tauri commands
   const {
@@ -110,6 +130,13 @@ const DeployPage: React.FC = () => {
     execute: rollback,
     loading: rollingBack,
   } = useTauriCommand<any>('rollback_deployment')
+
+  const {
+    data: deviceValidationData,
+    error: deviceValidationError,
+    loading: validatingDevices,
+    execute: validateDevices,
+  } = useTauriCommand<DeviceValidationResponse>('validate_hardware_devices')
 
   // Load deployment history and configs on mount
   useEffect(() => {
@@ -186,11 +213,28 @@ const DeployPage: React.FC = () => {
     }
   }, [healthData])
 
+  // Handle device validation result
+  useEffect(() => {
+    if (deviceValidationData) {
+      setDeviceValidation(deviceValidationData)
+      if (deviceValidationData.warnings.length > 0) {
+        setShowDeviceWarnings(true)
+      }
+    }
+  }, [deviceValidationData])
+
   // Handle validation
   const handleValidate = async () => {
     setDeploymentStep('validating')
     setValidationResult(null)
     await runValidation({ config_path: configPath })
+  }
+
+  // Handle device validation
+  const handleValidateDevices = async () => {
+    setDeviceValidation(null)
+    setShowDeviceWarnings(false)
+    await validateDevices()
   }
 
   // Handle deployment
@@ -278,6 +322,63 @@ const DeployPage: React.FC = () => {
         </p>
       </div>
 
+      {/* Device Validation Warnings */}
+      {showDeviceWarnings && deviceValidation && deviceValidation.warnings.length > 0 && (
+        <Card className="mb-6 bg-yellow-50 border border-yellow-200">
+          <div className="flex items-start">
+            <span className="text-yellow-500 text-2xl mr-3">⚠️</span>
+            <div className="flex-1">
+              <h3 className="text-lg font-semibold text-yellow-900 mb-2">设备验证警告</h3>
+              <p className="text-sm text-yellow-800 mb-3">
+                以下设备不存在或不可用。部署仍将继续,但这些设备可能无法被 Frigate 识别:
+              </p>
+              <ul className="space-y-1 mb-3">
+                {deviceValidation.warnings.map((warning, idx) => (
+                  <li key={idx} className="text-sm text-yellow-700">
+                    {warning}
+                  </li>
+                ))}
+              </ul>
+              <div className="flex items-center justify-between mt-4 pt-3 border-t border-yellow-200">
+                <div className="text-sm text-yellow-800">
+                  <strong>{deviceValidation.valid_count}</strong> / {deviceValidation.total_devices} 设备可用
+                </div>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setShowDeviceWarnings(false)}
+                  icon="×"
+                >
+                  关闭
+                </Button>
+              </div>
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {/* Deployment Response Warnings */}
+      {currentDeployment && currentDeployment.warnings && currentDeployment.warnings.length > 0 && (
+        <Card className="mb-6 bg-yellow-50 border border-yellow-200">
+          <div className="flex items-start">
+            <span className="text-yellow-500 text-2xl mr-3">⚠️</span>
+            <div className="flex-1">
+              <h3 className="text-lg font-semibold text-yellow-900 mb-2">部署警告</h3>
+              <p className="text-sm text-yellow-800 mb-3">
+                部署已成功,但发现以下问题:
+              </p>
+              <ul className="space-y-1">
+                {currentDeployment.warnings.map((warning, idx) => (
+                  <li key={idx} className="text-sm text-yellow-700">
+                    {warning}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </Card>
+      )}
+
       {/* Configuration Section */}
       <Card className="mb-6">
         <h2 className="text-xl font-semibold mb-4">配置设置</h2>
@@ -342,6 +443,15 @@ const DeployPage: React.FC = () => {
               variant="outline"
             >
               {validating ? '验证中...' : '验证配置'}
+            </Button>
+            <Button
+              onClick={handleValidateDevices}
+              loading={validatingDevices}
+              disabled={isDeploying}
+              icon="🔍"
+              variant="outline"
+            >
+              {validatingDevices ? '验证中...' : '验证设备'}
             </Button>
             <Button
               onClick={handleDeploy}

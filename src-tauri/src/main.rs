@@ -67,6 +67,10 @@ fn main() {
             commands::deploy::rollback_deployment,
             commands::deploy::list_deployment_history,
             commands::deploy::get_deployment_by_id_cmd,
+            commands::deploy::add_hardware_device_to_config,
+            commands::deploy::get_saved_hardware_devices,
+            commands::deploy::remove_hardware_device,
+            commands::deploy::validate_hardware_devices,
 
             // Disk commands (Phase 8 - T175, T180)
             commands::disk::get_disk_info_command,

@@ -35,13 +35,41 @@ pub async fn deploy_frigate(
 ) -> Result<DeploymentResponse, AppError> {
     info!("Deploying Frigate with config: {:?}", request.config_path);
 
+    // Load saved hardware devices and merge with request devices
+    let saved_devices = load_hardware_devices().await.unwrap_or_else(|e| {
+        warn!("Failed to load hardware devices: {}", e);
+        Vec::new()
+    });
+
+    let mut all_devices = request.devices.clone();
+    let mut device_warnings = Vec::new();
+
+    for hw_device in saved_devices {
+        if !all_devices.contains(&hw_device.device_path) {
+            info!("Adding hardware device from config: {} ({})", hw_device.device_name, hw_device.device_path);
+
+            // Validate device existence
+            if !validate_device_path(&hw_device.device_path) {
+                let warning = format!(
+                    "⚠️ 设备 {} ({}) 不存在,但仍会添加到配置中。请确保设备在部署时可用。",
+                    hw_device.device_name,
+                    hw_device.device_path
+                );
+                warn!("{}", warning);
+                device_warnings.push(warning);
+            }
+
+            all_devices.push(hw_device.device_path);
+        }
+    }
+
     let deployment_request = DeploymentRequest {
         config_path: PathBuf::from(&request.config_path),
         method: match request.method.as_str() {
             "DockerCompose" => DeploymentMethod::DockerCompose,
             _ => DeploymentMethod::DockerRun,
         },
-        devices: request.devices,
+        devices: all_devices,
         volumes: request.volumes.into_iter().map(|v| (v.host_path, v.container_path)).collect(),
         ports: request.ports.into_iter().map(|p| (p.host_port, p.container_port)).collect(),
         environment: request.environment,
@@ -76,6 +104,7 @@ pub async fn deploy_frigate(
         stderr: result.stderr,
         exit_code: result.exit_code,
         deployment_time: chrono::Utc::now().to_rfc3339(),
+        warnings: device_warnings,
     })
 }
 
@@ -282,6 +311,7 @@ pub struct DeploymentResponse {
     pub stderr: String,
     pub exit_code: Option<i32>,
     pub deployment_time: String,
+    pub warnings: Vec<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -354,4 +384,239 @@ pub struct DeploymentHistoryItem {
     pub deployment_time: String,
     pub command: String,
     pub status: String,
+}
+
+// ========== Hardware Device Commands ==========
+
+/// Add hardware device to deployment configuration
+#[tauri::command]
+pub async fn add_hardware_device_to_config(
+    device_path: String,
+    device_type: String,
+    device_name: String,
+    _state: State<'_, Arc<Mutex<AppState>>>,
+) -> Result<AddHardwareDeviceResponse, AppError> {
+    info!("Adding hardware device to config: {} ({})", device_name, device_path);
+
+    // Validate device path
+    if device_path.is_empty() {
+        return Err(AppError::Deployment("Device path cannot be empty".to_string()));
+    }
+
+    // Get or create hardware config file path
+    let config_dir = dirs::config_dir()
+        .ok_or_else(|| AppError::Deployment("Failed to get config directory".to_string()))?
+        .join("frigate-config-tool");
+
+    tokio::fs::create_dir_all(&config_dir).await
+        .map_err(|e| AppError::Deployment(format!("Failed to create config directory: {}", e)))?;
+
+    let config_path = config_dir.join("hardware_devices.json");
+
+    // Load existing devices or create new list
+    let mut devices: Vec<HardwareDeviceConfig> = if config_path.exists() {
+        let content = tokio::fs::read_to_string(&config_path).await
+            .map_err(|e| AppError::Deployment(format!("Failed to read config: {}", e)))?;
+        serde_json::from_str(&content)
+            .unwrap_or_else(|_| Vec::new())
+    } else {
+        Vec::new()
+    };
+
+    // Check if device already exists
+    if !devices.iter().any(|d| d.device_path == device_path) {
+        devices.push(HardwareDeviceConfig {
+            device_path: device_path.clone(),
+            device_type: device_type.clone(),
+            device_name: device_name.clone(),
+            enabled: true,
+        });
+
+        // Save updated config
+        let json = serde_json::to_string_pretty(&devices)
+            .map_err(|e| AppError::Deployment(format!("Failed to serialize config: {}", e)))?;
+
+        tokio::fs::write(&config_path, json).await
+            .map_err(|e| AppError::Deployment(format!("Failed to write config: {}", e)))?;
+
+        info!("Saved hardware device to config: {}", config_path.display());
+    } else {
+        info!("Device already exists in config: {}", device_path);
+    }
+
+    Ok(AddHardwareDeviceResponse {
+        success: true,
+        message: format!("已添加设备 {} 到配置", device_name),
+        device_path,
+        device_type,
+    })
+}
+
+/// Validate hardware device existence
+fn validate_device_path(device_path: &str) -> bool {
+    std::path::Path::new(device_path).exists()
+}
+
+/// Load saved hardware devices from config
+pub async fn load_hardware_devices() -> Result<Vec<HardwareDeviceConfig>, AppError> {
+    let config_dir = dirs::config_dir()
+        .ok_or_else(|| AppError::Deployment("Failed to get config directory".to_string()))?
+        .join("frigate-config-tool");
+
+    let config_path = config_dir.join("hardware_devices.json");
+
+    if !config_path.exists() {
+        return Ok(Vec::new());
+    }
+
+    let content = tokio::fs::read_to_string(&config_path).await
+        .map_err(|e| AppError::Deployment(format!("Failed to read hardware config: {}", e)))?;
+
+    let devices: Vec<HardwareDeviceConfig> = serde_json::from_str(&content)
+        .map_err(|e| AppError::Deployment(format!("Failed to parse hardware config: {}", e)))?;
+
+    Ok(devices.into_iter().filter(|d| d.enabled).collect())
+}
+
+/// Get list of saved hardware devices
+#[tauri::command]
+pub async fn get_saved_hardware_devices(
+    _state: State<'_, Arc<Mutex<AppState>>>,
+) -> Result<Vec<HardwareDeviceConfig>, AppError> {
+    load_hardware_devices().await
+}
+
+/// Validate all saved hardware devices
+#[tauri::command]
+pub async fn validate_hardware_devices(
+    _state: State<'_, Arc<Mutex<AppState>>>,
+) -> Result<DeviceValidationResponse, AppError> {
+    info!("Validating hardware devices");
+
+    let devices = load_hardware_devices().await?;
+    let mut valid_devices = Vec::new();
+    let mut invalid_devices = Vec::new();
+    let mut warnings = Vec::new();
+
+    for device in devices {
+        if validate_device_path(&device.device_path) {
+            valid_devices.push(DeviceValidationResult {
+                device_path: device.device_path.clone(),
+                device_name: device.device_name.clone(),
+                device_type: device.device_type.clone(),
+                exists: true,
+                message: format!("✓ 设备 {} 存在", device.device_name),
+            });
+        } else {
+            let warning = format!(
+                "⚠️ 设备 {} ({}) 不存在",
+                device.device_name,
+                device.device_path
+            );
+            warnings.push(warning.clone());
+            invalid_devices.push(DeviceValidationResult {
+                device_path: device.device_path.clone(),
+                device_name: device.device_name.clone(),
+                device_type: device.device_type.clone(),
+                exists: false,
+                message: warning,
+            });
+        }
+    }
+
+    Ok(DeviceValidationResponse {
+        total_devices: valid_devices.len() + invalid_devices.len(),
+        valid_count: valid_devices.len(),
+        invalid_count: invalid_devices.len(),
+        valid_devices,
+        invalid_devices,
+        warnings,
+    })
+}
+
+/// Remove hardware device from config
+#[tauri::command]
+pub async fn remove_hardware_device(
+    device_path: String,
+    _state: State<'_, Arc<Mutex<AppState>>>,
+) -> Result<RemoveHardwareDeviceResponse, AppError> {
+    info!("Removing hardware device from config: {}", device_path);
+
+    let config_dir = dirs::config_dir()
+        .ok_or_else(|| AppError::Deployment("Failed to get config directory".to_string()))?
+        .join("frigate-config-tool");
+
+    let config_path = config_dir.join("hardware_devices.json");
+
+    if !config_path.exists() {
+        return Err(AppError::Deployment("No hardware devices configured".to_string()));
+    }
+
+    // Load existing devices
+    let content = tokio::fs::read_to_string(&config_path).await
+        .map_err(|e| AppError::Deployment(format!("Failed to read config: {}", e)))?;
+
+    let mut devices: Vec<HardwareDeviceConfig> = serde_json::from_str(&content)
+        .map_err(|e| AppError::Deployment(format!("Failed to parse config: {}", e)))?;
+
+    // Remove the device
+    let original_len = devices.len();
+    devices.retain(|d| d.device_path != device_path);
+
+    if devices.len() == original_len {
+        return Err(AppError::Deployment(format!("Device not found: {}", device_path)));
+    }
+
+    // Save updated config
+    let json = serde_json::to_string_pretty(&devices)
+        .map_err(|e| AppError::Deployment(format!("Failed to serialize config: {}", e)))?;
+
+    tokio::fs::write(&config_path, json).await
+        .map_err(|e| AppError::Deployment(format!("Failed to write config: {}", e)))?;
+
+    Ok(RemoveHardwareDeviceResponse {
+        success: true,
+        message: format!("已从配置中移除设备: {}", device_path),
+    })
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct HardwareDeviceConfig {
+    pub device_path: String,
+    pub device_type: String,
+    pub device_name: String,
+    pub enabled: bool,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct AddHardwareDeviceResponse {
+    pub success: bool,
+    pub message: String,
+    pub device_path: String,
+    pub device_type: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct RemoveHardwareDeviceResponse {
+    pub success: bool,
+    pub message: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct DeviceValidationResult {
+    pub device_path: String,
+    pub device_name: String,
+    pub device_type: String,
+    pub exists: bool,
+    pub message: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct DeviceValidationResponse {
+    pub total_devices: usize,
+    pub valid_count: usize,
+    pub invalid_count: usize,
+    pub valid_devices: Vec<DeviceValidationResult>,
+    pub invalid_devices: Vec<DeviceValidationResult>,
+    pub warnings: Vec<String>,
 }
