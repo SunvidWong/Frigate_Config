@@ -133,7 +133,6 @@ const DeployPage: React.FC = () => {
 
   const {
     data: deviceValidationData,
-    error: deviceValidationError,
     loading: validatingDevices,
     execute: validateDevices,
   } = useTauriCommand<DeviceValidationResponse>('validate_hardware_devices')
