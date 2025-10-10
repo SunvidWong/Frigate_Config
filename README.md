@@ -90,86 +90,45 @@ Install Microsoft Visual Studio C++ Build Tools
 
 ### 🐳 Docker Deployment (推荐)
 
-#### ⚡ 方式 0: 使用预构建镜像（最简单、最快）
+#### ⚡ 使用预构建镜像部署
 
-**无需克隆仓库，无需构建，直接拉取镜像运行！**
+**使用 docker-compose（推荐）**
 
+创建 `docker-compose.yml` 文件：
+```yaml
+services:
+  frigate-config-web:
+    image: ghcr.io/sunvidwong/frigate_config:latest
+    container_name: frigate-config-web
+    ports:
+      - 8080:80
+    restart: unless-stopped
+```
+
+启动服务：
 ```bash
-# 一键安装（自动拉取镜像并启动）
-curl -fsSL https://raw.githubusercontent.com/SunvidWong/Frigate_Config/001-2-1-ui/install.sh | bash
+docker compose up -d
+```
 
-# 或手动运行
+访问：http://localhost:8080
+
+---
+
+**或使用 docker run**
+```bash
 docker run -d \
   --name frigate-config-web \
   -p 8080:80 \
   --restart unless-stopped \
   ghcr.io/sunvidwong/frigate_config:latest
-
-# 访问 http://localhost:8080
 ```
 
-**使用 docker-compose (预构建镜像)**:
+**停止服务**
 ```bash
-# 下载 docker-compose.prod.yml
-curl -O https://raw.githubusercontent.com/SunvidWong/Frigate_Config/001-2-1-ui/docker-compose.prod.yml
-
-# 启动
-docker compose -f docker-compose.prod.yml up -d
+docker compose down
+# 或
+docker stop frigate-config-web
 ```
-
----
-
-#### 方式 1: 一键构建脚本（需要 Node.js）
-
-```bash
-# 克隆仓库
-git clone https://github.com/SunvidWong/Frigate_Config.git
-cd Frigate_Config
-
-# 一键启动（自动构建前端并启动容器）
-./start-docker.sh
-
-# 访问应用
-# 浏览器打开: http://localhost:8080
-```
-
-#### 方式 2: 手动三步部署
-
-```bash
-# 1. 构建前端
-cd src-ui
-npm install
-npm run build
-cd ..
-
-# 2. 启动 Docker 容器（使用 Nginx 镜像）
-docker compose -f docker-compose.web.yml up -d
-
-# 3. 访问 http://localhost:8080
-```
-
-#### 方式 3: 完整镜像构建
-
-```bash
-# 构建包含所有内容的独立镜像
-docker build -f Dockerfile.web -t frigate-config-web:latest .
-
-# 启动容器
-docker run -d \
-  --name frigate-config-web \
-  -p 8080:80 \
-  --restart unless-stopped \
-  frigate-config-web:latest
-
-# 访问 http://localhost:8080
-```
-
-**停止服务:**
-```bash
-docker compose -f docker-compose.web.yml down
-```
-
-**详细 Docker 部署文档**: 📖 [DOCKER_INSTALL.md](DOCKER_INSTALL.md)
 
 ---
 
