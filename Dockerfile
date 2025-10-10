@@ -36,6 +36,9 @@ RUN apt-get update && apt-get install -y \
     librsvg2-dev \
     && rm -rf /var/lib/apt/lists/*
 
+# Copy workspace Cargo.toml (required for workspace inheritance)
+COPY Cargo.toml ./
+
 # Copy Rust source code
 COPY src-tauri/ ./src-tauri/
 
