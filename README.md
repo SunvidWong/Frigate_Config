@@ -90,29 +90,41 @@ Install Microsoft Visual Studio C++ Build Tools
 
 ### 🐳 Docker Deployment (推荐)
 
-**最简单的安装方式 - 无需安装 Rust、Node.js 等依赖！**
+**简单三步部署 - 只需 Node.js + Docker！**
 
-#### 一键部署 Web 版本
+#### 方式 1: 一键启动脚本（最简单）
 
 ```bash
 # 克隆仓库
 git clone https://github.com/SunvidWong/Frigate_Config.git
 cd Frigate_Config
 
-# 一键部署（自动构建和启动）
-./docker-deploy.sh
-
-# 或直接使用 docker-compose
-docker-compose -f docker-compose.web.yml up -d
+# 一键启动（自动构建前端并启动容器）
+./start-docker.sh
 
 # 访问应用
 # 浏览器打开: http://localhost:8080
 ```
 
-#### 手动 Docker 部署
+#### 方式 2: 手动三步部署
 
 ```bash
-# 构建镜像
+# 1. 构建前端
+cd src-ui
+npm install
+npm run build
+cd ..
+
+# 2. 启动 Docker 容器（使用 Nginx 镜像）
+docker compose -f docker-compose.web.yml up -d
+
+# 3. 访问 http://localhost:8080
+```
+
+#### 方式 3: 完整镜像构建
+
+```bash
+# 构建包含所有内容的独立镜像
 docker build -f Dockerfile.web -t frigate-config-web:latest .
 
 # 启动容器
@@ -123,6 +135,11 @@ docker run -d \
   frigate-config-web:latest
 
 # 访问 http://localhost:8080
+```
+
+**停止服务:**
+```bash
+docker compose -f docker-compose.web.yml down
 ```
 
 **详细 Docker 部署文档**: 📖 [DOCKER_INSTALL.md](DOCKER_INSTALL.md)

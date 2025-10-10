@@ -2,11 +2,21 @@
 
 本指南提供了使用 Docker 部署 Frigate Configuration Tool 的完整说明。
 
+## 📋 部署方式对比
+
+| 方式 | 优点 | 缺点 | 适用场景 |
+|------|------|------|----------|
+| **方式1: 一键脚本** | 最简单，自动化 | 需要 Node.js | 推荐给所有用户 |
+| **方式2: 明文配置** | 配置清晰，易理解 | 需手动构建前端 | 了解 Docker 的用户 |
+| **方式3: 完整镜像** | 独立镜像，可分发 | 构建时间长 | 生产环境 |
+
 ## 目录
 
 - [快速开始](#快速开始)
-- [方式1: 使用 Web 版本 (推荐)](#方式1-使用-web-版本-推荐)
-- [方式2: 使用完整 Tauri 版本](#方式2-使用完整-tauri-版本)
+- [方式1: 一键启动脚本 (推荐)](#方式1-一键启动脚本-推荐)
+- [方式2: 明文 Docker Compose](#方式2-明文-docker-compose)
+- [方式3: 完整镜像构建](#方式3-完整镜像构建)
+- [方式4: 使用完整 Tauri 版本](#方式4-使用完整-tauri-版本)
 - [配置说明](#配置说明)
 - [故障排除](#故障排除)
 
@@ -16,19 +26,25 @@
 
 ### 前置要求
 
+**最少要求 (方式1和2):**
 - Docker 20.10+
 - Docker Compose 2.0+
-- 至少 2GB 可用磁盘空间
+- Node.js 18+ (仅用于构建前端)
+- 至少 1GB 可用磁盘空间
 
-### 一键启动 (Web 版本)
+**完整构建 (方式3和4):**
+- 以上所有要求
+- 至少 5GB 可用磁盘空间（Rust 编译需要）
+
+### ⚡ 最快速启动
 
 ```bash
 # 克隆仓库
 git clone https://github.com/SunvidWong/Frigate_Config.git
 cd Frigate_Config
 
-# 构建并启动
-docker-compose -f docker-compose.web.yml up -d
+# 一键启动（推荐）
+./start-docker.sh
 
 # 访问应用
 # 浏览器打开: http://localhost:8080
@@ -36,9 +52,130 @@ docker-compose -f docker-compose.web.yml up -d
 
 ---
 
-## 方式1: 使用 Web 版本 (推荐)
+## 方式1: 一键启动脚本 (推荐)
 
-Web 版本使用 Nginx 提供静态文件服务，适合远程访问和服务器部署。
+最简单的部署方式，自动构建前端并启动容器。
+
+### 使用方法
+
+```bash
+# 克隆仓库
+git clone https://github.com/SunvidWong/Frigate_Config.git
+cd Frigate_Config
+
+# 执行一键启动脚本
+./start-docker.sh
+```
+
+脚本会自动:
+1. ✅ 检查 Node.js 和 Docker 环境
+2. ✅ 安装前端依赖（如果需要）
+3. ✅ 构建前端代码
+4. ✅ 启动 Nginx 容器提供服务
+5. ✅ 显示访问地址和管理命令
+
+### 访问应用
+
+浏览器打开: `http://localhost:8080`
+
+### 停止服务
+
+```bash
+docker compose -f docker-compose.web.yml down
+```
+
+---
+
+## 方式2: 明文 Docker Compose
+
+使用简单的 `docker-compose.yml` 配置文件，直接挂载构建产物。
+
+### 优势
+
+- ✅ 配置文件清晰易懂，纯声明式
+- ✅ 直接使用 `nginx:alpine` 官方镜像
+- ✅ 通过卷挂载前端文件，无需构建镜像
+- ✅ 修改配置后直接生效
+
+### docker-compose.web.yml 内容
+
+```yaml
+version: '3.8'
+
+services:
+  # Frigate 配置工具 Web 界面
+  frigate-config-web:
+    image: nginx:alpine              # 使用官方 Nginx 镜像
+    container_name: frigate-config-web
+    ports:
+      - "8080:80"                    # 端口映射
+    volumes:
+      # 挂载前端构建产物
+      - ./src-ui/dist:/usr/share/nginx/html:ro
+      # 挂载 Nginx 配置
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    labels:
+      - "com.frigate.config.app=web"
+      - "com.frigate.config.version=1.0"
+    networks:
+      - frigate-network
+
+networks:
+  frigate-network:
+    name: frigate-config-network
+    driver: bridge
+```
+
+### 部署步骤
+
+```bash
+# 1. 构建前端
+cd src-ui
+npm install
+npm run build
+cd ..
+
+# 2. 启动容器（使用卷挂载，无需构建镜像）
+docker compose -f docker-compose.web.yml up -d
+
+# 3. 访问 http://localhost:8080
+```
+
+### 修改端口
+
+编辑 `docker-compose.web.yml`:
+
+```yaml
+ports:
+  - "9000:80"  # 修改为 9000 端口
+```
+
+然后重启:
+
+```bash
+docker compose -f docker-compose.web.yml restart
+```
+
+### 停止服务
+
+```bash
+docker compose -f docker-compose.web.yml down
+```
+
+---
+
+## 方式3: 完整镜像构建
+
+构建包含所有内容的独立 Docker 镜像，适合生产环境和镜像分发。
 
 ### 步骤 1: 构建镜像
 
@@ -47,15 +184,11 @@ Web 版本使用 Nginx 提供静态文件服务，适合远程访问和服务器
 docker build -f Dockerfile.web -t frigate-config-web:latest .
 ```
 
+⏱️ 构建时间: 约 2-5 分钟
+
 ### 步骤 2: 启动容器
 
-使用 docker-compose:
-
-```bash
-docker-compose -f docker-compose.web.yml up -d
-```
-
-或直接使用 docker run:
+使用 docker run:
 
 ```bash
 docker run -d \
@@ -75,16 +208,16 @@ docker run -d \
 
 ```bash
 # 停止容器
-docker-compose -f docker-compose.web.yml down
-
-# 或
 docker stop frigate-config-web
 docker rm frigate-config-web
+
+# 删除镜像
+docker rmi frigate-config-web:latest
 ```
 
 ---
 
-## 方式2: 使用完整 Tauri 版本
+## 方式4: 使用完整 Tauri 版本
 
 完整版本包含 Rust 后端和前端，支持所有功能。
 
