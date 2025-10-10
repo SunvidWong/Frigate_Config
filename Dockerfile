@@ -19,7 +19,7 @@ COPY src-ui/ ./
 RUN npm run build
 
 # Stage 2: Build Rust backend
-FROM rust:1.80-slim AS backend-builder
+FROM rust:1.82-slim AS backend-builder
 
 WORKDIR /app
 
