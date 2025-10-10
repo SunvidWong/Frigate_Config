@@ -61,7 +61,7 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /app
 
 # Copy binary from builder
-COPY --from=backend-builder /app/target/release/frigate-config-tool /app/
+COPY --from=backend-builder /app/src-tauri/target/release/frigate-config-tool /app/
 COPY --from=frontend-builder /app/frontend/dist /app/web/
 
 # Create data directory
