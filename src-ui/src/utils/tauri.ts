@@ -12,7 +12,7 @@ export const isTauriEnvironment = (): boolean => {
  */
 export const safeInvoke = async <T>(command: string, args?: any): Promise<T> => {
   if (!isTauriEnvironment()) {
-    throw new Error('摄像头扫描功能仅在桌面应用中可用。Docker 部署版本不支持此功能。');
+    throw new Error(`此功能仅在桌面应用中可用: ${command}`);
   }
 
   const { invoke } = await import('@tauri-apps/api');

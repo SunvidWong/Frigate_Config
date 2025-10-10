@@ -9,6 +9,43 @@ import Card from '../components/Card'
 import Modal from '../components/Modal'
 import type { HardwareDevice, DeviceType, HardwareAvailability } from '../types'
 
+// Preset hardware configurations for common devices
+interface PresetHardware {
+  id: string
+  name: string
+  devicePath: string
+  type: DeviceType
+  description: string
+}
+
+const PRESET_HARDWARE: PresetHardware[] = [
+  // NVIDIA GPUs
+  { id: 'nvidia-gpu', name: 'NVIDIA GPU', devicePath: '/dev/dri/renderD128', type: 'gpu', description: 'NVIDIA 显卡 (通过 docker --gpus 参数)' },
+
+  // Intel GPUs
+  { id: 'intel-qsv', name: 'Intel Quick Sync Video', devicePath: '/dev/dri/renderD128', type: 'gpu', description: 'Intel 核显硬件加速' },
+  { id: 'intel-vaapi', name: 'Intel VA-API', devicePath: '/dev/dri/card0', type: 'gpu', description: 'Intel 视频加速 API' },
+
+  // AMD GPUs
+  { id: 'amd-gpu', name: 'AMD GPU', devicePath: '/dev/dri/renderD128', type: 'gpu', description: 'AMD 显卡硬件加速' },
+  { id: 'amd-card0', name: 'AMD Card0', devicePath: '/dev/dri/card0', type: 'gpu', description: 'AMD 显卡设备0' },
+
+  // Google Coral TPUs
+  { id: 'coral-pci', name: 'Google Coral PCIe/M.2', devicePath: '/dev/apex_0', type: 'tpu', description: 'Google Coral PCIe/M.2 加速器' },
+  { id: 'coral-usb', name: 'Google Coral USB', devicePath: '/dev/bus/usb', type: 'tpu', description: 'Google Coral USB 加速器' },
+
+  // Hailo AI Accelerators
+  { id: 'hailo8', name: 'Hailo-8 AI Accelerator', devicePath: '/dev/hailo0', type: 'tpu', description: 'Hailo-8 AI 加速器' },
+  { id: 'hailo8l', name: 'Hailo-8L AI Accelerator', devicePath: '/dev/hailo0', type: 'tpu', description: 'Hailo-8L AI 加速器' },
+
+  // Rockchip NPUs
+  { id: 'rockchip-npu', name: 'Rockchip NPU', devicePath: '/dev/rknpu', type: 'tpu', description: 'Rockchip NPU (RK3588/RK3576)' },
+
+  // Common Video Devices
+  { id: 'video0', name: '视频设备 0', devicePath: '/dev/video0', type: 'camera', description: 'USB 摄像头或采集卡' },
+  { id: 'video1', name: '视频设备 1', devicePath: '/dev/video1', type: 'camera', description: 'USB 摄像头或采集卡' },
+]
+
 const HardwarePage: React.FC = () => {
   const [devices, setDevices] = useState<HardwareDevice[]>([])
   const [filteredDevices, setFilteredDevices] = useState<HardwareDevice[]>([])
@@ -21,10 +58,9 @@ const HardwarePage: React.FC = () => {
   const [addingDevice, setAddingDevice] = useState<string | null>(null)
   const [addSuccess, setAddSuccess] = useState<string | null>(null)
   const [isInTauriEnv, setIsInTauriEnv] = useState(false)
-  const [showManualAddForm, setShowManualAddForm] = useState(false)
-  const [manualDevicePath, setManualDevicePath] = useState('')
-  const [manualDeviceType, setManualDeviceType] = useState<DeviceType>('gpu')
-  const [manualDeviceName, setManualDeviceName] = useState('')
+  const [showPresetSelector, setShowPresetSelector] = useState(false)
+  const [selectedPreset, setSelectedPreset] = useState<string>('')
+  const [presetFilter, setPresetFilter] = useState<DeviceType | 'all'>('all')
 
   const {
     data: detectionData,
@@ -121,29 +157,30 @@ const HardwarePage: React.FC = () => {
     }
   }
 
-  const handleManualAdd = async () => {
-    if (!manualDevicePath || !manualDeviceName) {
-      alert('请填写设备路径和设备名称')
+  const handlePresetAdd = async () => {
+    if (!selectedPreset) {
+      alert('请选择一个硬件设备')
       return
     }
 
-    setAddingDevice('manual')
+    const preset = PRESET_HARDWARE.find(p => p.id === selectedPreset)
+    if (!preset) return
+
+    setAddingDevice(preset.id)
     setAddSuccess(null)
 
     try {
       await safeInvoke('add_hardware_device_to_config', {
-        devicePath: manualDevicePath,
-        deviceType: manualDeviceType,
-        deviceName: manualDeviceName
+        devicePath: preset.devicePath,
+        deviceType: preset.type,
+        deviceName: preset.name
       })
 
-      setAddSuccess(`已添加 ${manualDeviceName} 到配置`)
+      setAddSuccess(`已添加 ${preset.name} 到配置和 docker-compose.yml`)
 
-      // Clear form
-      setManualDevicePath('')
-      setManualDeviceName('')
-      setManualDeviceType('gpu')
-      setShowManualAddForm(false)
+      // Clear selection
+      setSelectedPreset('')
+      setShowPresetSelector(false)
 
       // Clear success message after 3 seconds
       setTimeout(() => setAddSuccess(null), 3000)
@@ -152,6 +189,13 @@ const HardwarePage: React.FC = () => {
     } finally {
       setAddingDevice(null)
     }
+  }
+
+  const getFilteredPresets = () => {
+    if (presetFilter === 'all') {
+      return PRESET_HARDWARE
+    }
+    return PRESET_HARDWARE.filter(p => p.type === presetFilter)
   }
 
   const getDeviceIcon = (type: DeviceType): string => {
@@ -184,97 +228,116 @@ const HardwarePage: React.FC = () => {
         </p>
       </div>
 
-      {/* Environment Warning with Manual Add Form */}
+      {/* Preset Hardware Selector for Docker/Browser Mode */}
       {!isInTauriEnv && (
-        <Card className="mb-6 bg-blue-50 border border-blue-200">
+        <Card className="mb-6 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200">
           <div className="flex items-start">
-            <span className="text-blue-500 text-2xl mr-3">ℹ️</span>
+            <span className="text-blue-500 text-2xl mr-3">🔧</span>
             <div className="flex-1">
-              <h3 className="text-lg font-semibold text-blue-900 mb-2">Docker / 浏览器模式</h3>
+              <h3 className="text-lg font-semibold text-blue-900 mb-2">选择硬件加速器</h3>
               <p className="text-sm text-blue-800 mb-3">
-                您当前在浏览器环境中运行此应用。自动硬件检测功能不可用,但您可以手动添加设备路径到配置中。
+                请选择您的硬件设备,系统将自动添加相关参数到 docker-compose.yml 文件中。
               </p>
 
               <Button
                 size="sm"
-                onClick={() => setShowManualAddForm(!showManualAddForm)}
-                icon={showManualAddForm ? '−' : '+'}
+                onClick={() => setShowPresetSelector(!showPresetSelector)}
+                icon={showPresetSelector ? '−' : '+'}
                 variant="outline"
                 className="mb-3"
               >
-                {showManualAddForm ? '取消添加' : '手动添加设备'}
+                {showPresetSelector ? '关闭选择器' : '添加硬件设备'}
               </Button>
 
-              {showManualAddForm && (
-                <div className="mt-4 p-4 bg-white rounded-lg border border-blue-200">
-                  <h4 className="font-semibold text-gray-900 mb-3">手动添加硬件设备</h4>
-                  <div className="space-y-3">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        设备路径 <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        value={manualDevicePath}
-                        onChange={(e) => setManualDevicePath(e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
-                        placeholder="/dev/dri/renderD128 或 /dev/apex_0"
-                      />
-                      <p className="text-xs text-gray-500 mt-1">
-                        示例: /dev/dri/renderD128 (Intel GPU), /dev/apex_0 (Google Coral TPU), /dev/video0 (摄像头)
-                      </p>
-                    </div>
+              {showPresetSelector && (
+                <div className="mt-4 p-5 bg-white rounded-lg border border-blue-200 shadow-sm">
+                  <h4 className="font-semibold text-gray-900 mb-4">选择硬件类型</h4>
 
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        设备类型 <span className="text-red-500">*</span>
-                      </label>
-                      <select
-                        value={manualDeviceType}
-                        onChange={(e) => setManualDeviceType(e.target.value as DeviceType)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      >
-                        <option value="gpu">GPU (图形处理器)</option>
-                        <option value="tpu">TPU (张量处理器)</option>
-                        <option value="camera">Camera (摄像头)</option>
-                        <option value="capture_card">Capture Card (采集卡)</option>
-                      </select>
-                    </div>
+                  {/* Type Filter */}
+                  <div className="flex flex-wrap gap-2 mb-4">
+                    <button
+                      onClick={() => setPresetFilter('all')}
+                      className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
+                        presetFilter === 'all' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                    >
+                      全部
+                    </button>
+                    <button
+                      onClick={() => setPresetFilter('gpu')}
+                      className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
+                        presetFilter === 'gpu' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                    >
+                      🎮 GPU
+                    </button>
+                    <button
+                      onClick={() => setPresetFilter('tpu')}
+                      className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
+                        presetFilter === 'tpu' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                    >
+                      🧠 TPU/NPU
+                    </button>
+                    <button
+                      onClick={() => setPresetFilter('camera')}
+                      className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
+                        presetFilter === 'camera' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                    >
+                      📷 摄像头
+                    </button>
+                  </div>
 
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        设备名称 <span className="text-red-500">*</span>
+                  {/* Preset List */}
+                  <div className="space-y-2 mb-4 max-h-80 overflow-y-auto">
+                    {getFilteredPresets().map((preset) => (
+                      <label
+                        key={preset.id}
+                        className={`flex items-start p-3 border rounded-lg cursor-pointer transition-all ${
+                          selectedPreset === preset.id
+                            ? 'border-blue-500 bg-blue-50 shadow-sm'
+                            : 'border-gray-200 hover:border-blue-300 hover:bg-gray-50'
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name="preset"
+                          value={preset.id}
+                          checked={selectedPreset === preset.id}
+                          onChange={(e) => setSelectedPreset(e.target.value)}
+                          className="mt-1 mr-3"
+                        />
+                        <div className="flex-1">
+                          <div className="font-semibold text-gray-900">{preset.name}</div>
+                          <div className="text-xs text-gray-500 font-mono mt-1">{preset.devicePath}</div>
+                          <div className="text-sm text-gray-600 mt-1">{preset.description}</div>
+                        </div>
+                        <span className="text-xl ml-2">{getDeviceIcon(preset.type)}</span>
                       </label>
-                      <input
-                        type="text"
-                        value={manualDeviceName}
-                        onChange={(e) => setManualDeviceName(e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="Intel UHD Graphics 或 Google Coral"
-                      />
-                    </div>
+                    ))}
+                  </div>
 
-                    <div className="flex space-x-2 pt-2">
-                      <Button
-                        onClick={handleManualAdd}
-                        loading={addingDevice === 'manual'}
-                        disabled={!manualDevicePath || !manualDeviceName}
-                        icon="+"
-                      >
-                        {addingDevice === 'manual' ? '添加中...' : '添加到配置'}
-                      </Button>
-                      <Button
-                        onClick={() => {
-                          setShowManualAddForm(false)
-                          setManualDevicePath('')
-                          setManualDeviceName('')
-                          setManualDeviceType('gpu')
-                        }}
-                        variant="ghost"
-                      >
-                        取消
-                      </Button>
-                    </div>
+                  {/* Action Buttons */}
+                  <div className="flex space-x-2 pt-3 border-t border-gray-200">
+                    <Button
+                      onClick={handlePresetAdd}
+                      loading={addingDevice !== null}
+                      disabled={!selectedPreset}
+                      icon="+"
+                      className="flex-1"
+                    >
+                      {addingDevice ? '添加中...' : '添加到配置'}
+                    </Button>
+                    <Button
+                      onClick={() => {
+                        setShowPresetSelector(false)
+                        setSelectedPreset('')
+                      }}
+                      variant="ghost"
+                    >
+                      取消
+                    </Button>
                   </div>
                 </div>
               )}
