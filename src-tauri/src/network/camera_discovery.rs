@@ -1,0 +1,297 @@
+// Camera Discovery Module
+// Network scanning for IP cameras
+
+use serde::{Deserialize, Serialize};
+use std::net::{IpAddr, SocketAddr};
+use std::time::Duration;
+use tokio::net::TcpStream as TokioTcpStream;
+use tokio::time::timeout;
+
+/// Discovered camera device
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DiscoveredCamera {
+    /// IP address
+    pub ip: String,
+    /// Open ports found
+    pub ports: Vec<u16>,
+    /// Device type hint (based on ports)
+    pub device_type: String,
+    /// Hostname (if resolvable)
+    pub hostname: Option<String>,
+    /// MAC address (if discoverable)
+    pub mac_address: Option<String>,
+    /// Possible RTSP URLs
+    pub rtsp_urls: Vec<String>,
+    /// Possible HTTP URLs
+    pub http_urls: Vec<String>,
+    /// Last seen timestamp
+    pub last_seen: i64,
+}
+
+/// Network scan configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ScanConfig {
+    /// Network range to scan (e.g., "192.168.1.0/24")
+    pub network_range: String,
+    /// Ports to scan
+    pub ports: Vec<u16>,
+    /// Timeout per port (milliseconds)
+    pub timeout_ms: u64,
+    /// Concurrent scans
+    pub concurrency: usize,
+}
+
+impl Default for ScanConfig {
+    fn default() -> Self {
+        Self {
+            network_range: "192.168.1.0/24".to_string(),
+            ports: vec![554, 80, 8000, 8080, 8554, 8888],
+            timeout_ms: 1000,
+            concurrency: 50,
+        }
+    }
+}
+
+/// Common camera ports
+pub const RTSP_PORTS: &[u16] = &[554, 8554];
+pub const HTTP_PORTS: &[u16] = &[80, 8000, 8080, 8888];
+pub const ONVIF_PORT: u16 = 3702;
+
+impl DiscoveredCamera {
+    /// Create new discovered camera
+    pub fn new(ip: String) -> Self {
+        Self {
+            ip,
+            ports: Vec::new(),
+            device_type: "Unknown".to_string(),
+            hostname: None,
+            mac_address: None,
+            rtsp_urls: Vec::new(),
+            http_urls: Vec::new(),
+            last_seen: chrono::Utc::now().timestamp(),
+        }
+    }
+
+    /// Add discovered port
+    pub fn add_port(&mut self, port: u16) {
+        if !self.ports.contains(&port) {
+            self.ports.push(port);
+            self.ports.sort();
+            self.update_device_type();
+            self.generate_urls();
+        }
+    }
+
+    /// Update device type based on open ports
+    fn update_device_type(&mut self) {
+        let has_rtsp = self.ports.iter().any(|p| RTSP_PORTS.contains(p));
+        let has_http = self.ports.iter().any(|p| HTTP_PORTS.contains(p));
+        let has_onvif = self.ports.contains(&ONVIF_PORT);
+
+        self.device_type = match (has_rtsp, has_http, has_onvif) {
+            (true, true, true) => "ONVIF Camera (RTSP + HTTP)".to_string(),
+            (true, true, false) => "IP Camera (RTSP + HTTP)".to_string(),
+            (true, false, _) => "RTSP Camera".to_string(),
+            (false, true, _) => "HTTP Camera".to_string(),
+            _ => "Network Device".to_string(),
+        };
+    }
+
+    /// Generate possible URLs
+    fn generate_urls(&mut self) {
+        // Generate RTSP URLs
+        self.rtsp_urls.clear();
+        for port in &self.ports {
+            if RTSP_PORTS.contains(port) {
+                self.rtsp_urls.push(format!("rtsp://{}:{}/", self.ip, port));
+                // Common RTSP paths
+                self.rtsp_urls.push(format!("rtsp://{}:{}/stream1", self.ip, port));
+                self.rtsp_urls.push(format!("rtsp://{}:{}/live/main", self.ip, port));
+                self.rtsp_urls.push(format!("rtsp://{}:{}/h264", self.ip, port));
+            }
+        }
+
+        // Generate HTTP URLs
+        self.http_urls.clear();
+        for port in &self.ports {
+            if HTTP_PORTS.contains(port) {
+                self.http_urls.push(format!("http://{}:{}/", self.ip, port));
+            }
+        }
+    }
+}
+
+/// Parse network range to IP list
+pub fn parse_network_range(range: &str) -> Result<Vec<IpAddr>, String> {
+    // Simple CIDR parsing (e.g., "192.168.1.0/24")
+    if let Some((network, prefix)) = range.split_once('/') {
+        let network_parts: Vec<&str> = network.split('.').collect();
+        if network_parts.len() != 4 {
+            return Err("Invalid network format".to_string());
+        }
+
+        let prefix_len: u8 = prefix.parse().map_err(|_| "Invalid prefix length")?;
+        if prefix_len > 32 {
+            return Err("Prefix length must be <= 32".to_string());
+        }
+
+        let base_octets: Result<Vec<u8>, _> = network_parts
+            .iter()
+            .map(|s| s.parse::<u8>())
+            .collect();
+
+        let base_octets = base_octets.map_err(|_| "Invalid IP address")?;
+
+        let mut ips = Vec::new();
+        let host_bits = 32 - prefix_len;
+        let num_hosts = 2u32.pow(host_bits as u32);
+
+        // Generate IP addresses in the range
+        for i in 1..num_hosts - 1 {  // Skip network and broadcast
+            let ip = IpAddr::from([
+                base_octets[0],
+                base_octets[1],
+                base_octets[2],
+                (base_octets[3] as u32 + i) as u8,
+            ]);
+            ips.push(ip);
+        }
+
+        Ok(ips)
+    } else {
+        Err("Invalid CIDR notation".to_string())
+    }
+}
+
+/// Check if a port is open on a host
+pub async fn check_port(ip: IpAddr, port: u16, timeout_ms: u64) -> bool {
+    let addr = SocketAddr::new(ip, port);
+    let duration = Duration::from_millis(timeout_ms);
+
+    match timeout(duration, TokioTcpStream::connect(&addr)).await {
+        Ok(Ok(_)) => true,
+        _ => false,
+    }
+}
+
+/// Scan a single IP for open ports
+pub async fn scan_ip(ip: IpAddr, ports: &[u16], timeout_ms: u64) -> Option<DiscoveredCamera> {
+    let ip_str = ip.to_string();
+    let mut camera = DiscoveredCamera::new(ip_str.clone());
+    let mut found_any = false;
+
+    for &port in ports {
+        if check_port(ip, port, timeout_ms).await {
+            camera.add_port(port);
+            found_any = true;
+        }
+    }
+
+    if found_any {
+        // Try to resolve hostname
+        camera.hostname = resolve_hostname(&ip).await;
+        Some(camera)
+    } else {
+        None
+    }
+}
+
+/// Resolve IP to hostname
+async fn resolve_hostname(_ip: &IpAddr) -> Option<String> {
+    // Reverse DNS lookup disabled for now
+    // Would require additional dependencies (dns_lookup crate)
+    // This is a placeholder for future implementation
+    None
+}
+
+/// Scan network for cameras
+pub async fn scan_network(config: ScanConfig) -> Result<Vec<DiscoveredCamera>, String> {
+    let ips = parse_network_range(&config.network_range)?;
+    let mut cameras = Vec::new();
+
+    // Use tokio tasks for concurrent scanning
+    let mut tasks = Vec::new();
+
+    for ip in ips {
+        let ports = config.ports.clone();
+        let timeout = config.timeout_ms;
+
+        let task = tokio::spawn(async move {
+            scan_ip(ip, &ports, timeout).await
+        });
+
+        tasks.push(task);
+
+        // Limit concurrency
+        if tasks.len() >= config.concurrency {
+            // Wait for some to complete
+            let results = futures::future::join_all(tasks).await;
+            for result in results {
+                if let Ok(Some(camera)) = result {
+                    cameras.push(camera);
+                }
+            }
+            tasks = Vec::new();
+        }
+    }
+
+    // Wait for remaining tasks
+    let results = futures::future::join_all(tasks).await;
+    for result in results {
+        if let Ok(Some(camera)) = result {
+            cameras.push(camera);
+        }
+    }
+
+    Ok(cameras)
+}
+
+/// Get local network interface IP
+pub fn get_local_ip() -> Option<String> {
+    use std::net::UdpSocket;
+
+    // Connect to a remote address to discover local IP
+    let socket = UdpSocket::bind("0.0.0.0:0").ok()?;
+    socket.connect("8.8.8.8:80").ok()?;
+    socket.local_addr().ok().map(|addr| addr.ip().to_string())
+}
+
+/// Guess network range from local IP
+pub fn guess_network_range() -> String {
+    if let Some(local_ip) = get_local_ip() {
+        let parts: Vec<&str> = local_ip.split('.').collect();
+        if parts.len() == 4 {
+            return format!("{}.{}.{}.0/24", parts[0], parts[1], parts[2]);
+        }
+    }
+    "192.168.1.0/24".to_string()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_network_range() {
+        let ips = parse_network_range("192.168.1.0/24").unwrap();
+        assert_eq!(ips.len(), 254);  // 256 - 2 (network and broadcast)
+        assert_eq!(ips[0].to_string(), "192.168.1.1");
+        assert_eq!(ips[253].to_string(), "192.168.1.254");
+    }
+
+    #[test]
+    fn test_camera_device_type() {
+        let mut camera = DiscoveredCamera::new("192.168.1.100".to_string());
+        camera.add_port(554);
+        assert_eq!(camera.device_type, "RTSP Camera");
+
+        camera.add_port(80);
+        assert_eq!(camera.device_type, "IP Camera (RTSP + HTTP)");
+    }
+
+    #[test]
+    fn test_guess_network_range() {
+        let range = guess_network_range();
+        assert!(range.ends_with(".0/24"));
+    }
+}

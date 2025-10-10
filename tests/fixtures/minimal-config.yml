@@ -1,0 +1,10 @@
+# Minimal Frigate configuration for testing
+
+cameras:
+  test_camera:
+    enabled: true
+    ffmpeg:
+      inputs:
+        - path: rtsp://test:test@localhost:554/stream
+          roles:
+            - detect

@@ -1,0 +1,11 @@
+# Camera configuration missing required ffmpeg.inputs
+mqtt:
+  enabled: false
+
+cameras:
+  broken_camera:
+    enabled: true
+    ffmpeg:
+      # Missing inputs section
+      output_args:
+        record: preset-record-generic-audio-copy

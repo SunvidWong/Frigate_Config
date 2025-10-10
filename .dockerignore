@@ -1,0 +1,36 @@
+# Git
+.git
+.gitignore
+
+# Build artifacts
+target/
+src-ui/dist/
+src-ui/node_modules/
+node_modules/
+
+# Documentation
+*.md
+docs/
+PHASE_8_*.md
+specs/
+
+# Tests
+tests/
+src-ui/src/**/*.test.ts
+src-ui/src/**/*.test.tsx
+
+# Development files
+.vscode/
+.idea/
+*.log
+.DS_Store
+.env.local
+.env.*.local
+
+# CI/CD
+.github/
+
+# Release packages
+*.tar.gz
+*.zip
+phase8-release-macos/

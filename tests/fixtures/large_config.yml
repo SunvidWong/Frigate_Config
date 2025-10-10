@@ -1,0 +1,65 @@
+# Large configuration file with many cameras for performance testing
+mqtt:
+  enabled: false
+
+cameras:
+  camera_001:
+    enabled: false
+    ffmpeg:
+      inputs:
+        - path: rtsp://camera001.example.com/stream
+          roles: [detect]
+  camera_002:
+    enabled: false
+    ffmpeg:
+      inputs:
+        - path: rtsp://camera002.example.com/stream
+          roles: [detect]
+  camera_003:
+    enabled: false
+    ffmpeg:
+      inputs:
+        - path: rtsp://camera003.example.com/stream
+          roles: [detect]
+  camera_004:
+    enabled: false
+    ffmpeg:
+      inputs:
+        - path: rtsp://camera004.example.com/stream
+          roles: [detect]
+  camera_005:
+    enabled: false
+    ffmpeg:
+      inputs:
+        - path: rtsp://camera005.example.com/stream
+          roles: [detect]
+  camera_006:
+    enabled: false
+    ffmpeg:
+      inputs:
+        - path: rtsp://camera006.example.com/stream
+          roles: [detect]
+  camera_007:
+    enabled: false
+    ffmpeg:
+      inputs:
+        - path: rtsp://camera007.example.com/stream
+          roles: [detect]
+  camera_008:
+    enabled: false
+    ffmpeg:
+      inputs:
+        - path: rtsp://camera008.example.com/stream
+          roles: [detect]
+  camera_009:
+    enabled: false
+    ffmpeg:
+      inputs:
+        - path: rtsp://camera009.example.com/stream
+          roles: [detect]
+  camera_010:
+    enabled: false
+    ffmpeg:
+      inputs:
+        - path: rtsp://camera010.example.com/stream
+          roles: [detect]

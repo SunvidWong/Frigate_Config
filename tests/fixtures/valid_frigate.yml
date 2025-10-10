@@ -1,0 +1,12 @@
+# Valid Frigate configuration for testing
+mqtt:
+  enabled: false
+
+cameras:
+  test_camera:
+    enabled: false
+    ffmpeg:
+      inputs:
+        - path: rtsp://test.example.com/stream
+          roles:
+            - detect

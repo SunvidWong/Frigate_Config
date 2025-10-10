@@ -1,0 +1,26 @@
+# Configuration with Unicode characters in camera names and paths
+mqtt:
+  enabled: false
+
+cameras:
+  前门摄像头:  # Front door camera in Chinese
+    enabled: false
+    ffmpeg:
+      inputs:
+        - path: rtsp://前门.example.com/stream
+          roles:
+            - detect
+  café_camera:  # Camera with accented character
+    enabled: false
+    ffmpeg:
+      inputs:
+        - path: rtsp://café.example.com/stream
+          roles:
+            - detect
+  日本カメラ:  # Japanese camera name
+    enabled: false
+    ffmpeg:
+      inputs:
+        - path: rtsp://カメラ.example.com/stream
+          roles:
+            - detect

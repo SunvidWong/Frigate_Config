@@ -1,0 +1,45 @@
+# Sample Frigate configuration for testing
+# This file is used in integration and E2E tests
+
+mqtt:
+  enabled: true
+  host: mqtt.local
+  port: 1883
+
+cameras:
+  front_door:
+    enabled: true
+    ffmpeg:
+      inputs:
+        - path: rtsp://admin:password@192.168.1.100:554/stream1
+          roles:
+            - detect
+            - record
+    detect:
+      width: 1920
+      height: 1080
+      fps: 15
+    record:
+      enabled: true
+      retain:
+        days: 7
+        mode: motion
+    snapshots:
+      enabled: true
+
+  backyard:
+    enabled: true
+    ffmpeg:
+      inputs:
+        - path: rtsp://admin:password@192.168.1.101:554/stream1
+          roles:
+            - detect
+    detect:
+      width: 1280
+      height: 720
+      fps: 10
+
+detectors:
+  coral:
+    type: edgetpu
+    device: usb

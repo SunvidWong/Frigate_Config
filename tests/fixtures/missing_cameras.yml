@@ -1,0 +1,8 @@
+# Configuration missing the required 'cameras' section
+mqtt:
+  enabled: false
+
+detectors:
+  coral:
+    type: edgetpu
+    device: usb

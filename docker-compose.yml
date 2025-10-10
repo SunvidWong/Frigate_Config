@@ -1,0 +1,99 @@
+version: '3.8'
+
+services:
+  frigate-config-tool:
+    image: frigate-config-ui:latest  # 使用现有镜像作为基础
+    container_name: frigate-config-tool-phase8
+    ports:
+      - "1420:1420"  # Tauri 应用端口
+      - "3000:3000"  # 备用端口
+    volumes:
+      # 挂载已构建的二进制和前端资源
+      - ./target/release/frigate-config-tool:/app/frigate-config-tool:ro
+      - ./src-ui/dist:/app/web:ro
+      # 数据持久化
+      - frigate-config-data:/app/data
+      - frigate-config-db:/root/.frigate-config-tool
+      # Phase 8 卷映射示例
+      - frigate-config:/config
+      - frigate-recordings:/media/frigate/recordings
+      - frigate-clips:/media/frigate/clips
+      - frigate-cache:/tmp/cache
+    environment:
+      - RUST_LOG=info
+      - FRIGATE_CONFIG_DATA_DIR=/app/data
+      - NODE_ENV=production
+    restart: unless-stopped
+    networks:
+      - frigate-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:1420/"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+    labels:
+      - "com.frigate.phase=8"
+      - "com.frigate.feature=disk-volume-mapping"
+
+  # Frigate 主服务 (如果需要)
+  # frigate:
+  #   image: ghcr.io/blakeblackshear/frigate:stable
+  #   container_name: frigate
+  #   restart: unless-stopped
+  #   volumes:
+  #     - frigate-config:/config
+  #     - frigate-recordings:/media/frigate/recordings
+  #     - frigate-clips:/media/frigate/clips
+  #     - frigate-cache:/tmp/cache
+  #   ports:
+  #     - "5000:5000"
+  #     - "8554:8554"  # RTSP
+  #   networks:
+  #     - frigate-network
+
+volumes:
+  frigate-config-data:
+    driver: local
+    labels:
+      - "com.frigate.phase8.data=true"
+
+  frigate-config-db:
+    driver: local
+    labels:
+      - "com.frigate.phase8.database=true"
+
+  # Phase 8 功能创建的卷映射
+  frigate-config:
+    driver: local
+    driver_opts:
+      type: none
+      device: ${HOME}/frigate/config
+      o: bind
+
+  frigate-recordings:
+    driver: local
+    driver_opts:
+      type: none
+      device: ${HOME}/frigate/recordings
+      o: bind
+
+  frigate-clips:
+    driver: local
+    driver_opts:
+      type: none
+      device: ${HOME}/frigate/clips
+      o: bind
+
+  frigate-cache:
+    driver: local
+    driver_opts:
+      type: none
+      device: ${HOME}/frigate/cache
+      o: bind
+
+networks:
+  frigate-network:
+    driver: bridge
+    labels:
+      - "com.frigate.network=true"

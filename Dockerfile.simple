@@ -1,0 +1,36 @@
+# Frigate Configuration Tool - Simple Deployment
+# Uses pre-built binary for quick deployment
+
+FROM debian:bookworm-slim
+
+# Install runtime dependencies
+RUN apt-get update && apt-get install -y \
+    curl \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Copy the pre-built binary
+COPY target/release/frigate-config-tool /app/frigate-config-tool
+COPY src-ui/dist /app/web
+
+# Make binary executable
+RUN chmod +x /app/frigate-config-tool
+
+# Create data directory
+RUN mkdir -p /app/data
+
+# Set environment variables
+ENV RUST_LOG=info
+ENV FRIGATE_CONFIG_DATA_DIR=/app/data
+
+# Expose port
+EXPOSE 1420
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:1420/ || exit 1
+
+# Run the application
+CMD ["/app/frigate-config-tool"]

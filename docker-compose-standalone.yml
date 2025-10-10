@@ -1,0 +1,100 @@
+version: '3.8'
+
+# Frigate Configuration Tool - Phase 8 Standalone Deployment
+# 注意: 此配置适用于在主机上运行应用,Docker 仅用于 Frigate 本身
+
+services:
+  # Frigate 视频监控服务
+  frigate:
+    image: ghcr.io/blakeblackshear/frigate:stable
+    container_name: frigate
+    restart: unless-stopped
+    privileged: true  # 需要访问硬件加速
+    shm_size: "256mb"  # 增加共享内存用于对象检测
+
+    # 使用 Phase 8 配置的卷映射
+    volumes:
+      # Config - 使用 Phase 8 配置的路径
+      - ${FRIGATE_CONFIG_PATH:-~/frigate/config}:/config
+
+      # Recordings - Phase 8 推荐的录像存储
+      - ${FRIGATE_RECORDINGS_PATH:-~/frigate/recordings}:/media/frigate/recordings
+
+      # Clips - Phase 8 推荐的剪辑存储
+      - ${FRIGATE_CLIPS_PATH:-~/frigate/clips}:/media/frigate/clips
+
+      # Cache - Phase 8 推荐的缓存
+      - ${FRIGATE_CACHE_PATH:-~/frigate/cache}:/tmp/cache
+
+      # 时区设置
+      - /etc/localtime:/etc/localtime:ro
+
+    ports:
+      - "5002:5000"     # Web UI (使用 5002 避免端口冲突)
+      - "8554:8554"     # RTSP feeds
+      - "8555:8555/tcp" # WebRTC
+      - "8555:8555/udp" # WebRTC
+
+    environment:
+      FRIGATE_RTSP_PASSWORD: "password"
+      TZ: "Asia/Shanghai"
+
+    networks:
+      - frigate-net
+
+    labels:
+      - "com.frigate.managed=true"
+      - "com.frigate.phase8.volumes=configured"
+
+  # Redis - Frigate 需要
+  redis:
+    image: redis:7-alpine
+    container_name: frigate-redis
+    restart: unless-stopped
+    networks:
+      - frigate-net
+    command: redis-server --save 60 1 --loglevel warning
+
+  # MQTT Broker (可选 - 用于 Home Assistant 集成)
+  mosquitto:
+    image: eclipse-mosquitto:2
+    container_name: frigate-mqtt
+    restart: unless-stopped
+    ports:
+      - "1883:1883"
+      - "9001:9001"
+    volumes:
+      - mosquitto-data:/mosquitto/data
+      - mosquitto-log:/mosquitto/log
+    networks:
+      - frigate-net
+
+networks:
+  frigate-net:
+    driver: bridge
+    name: frigate-network
+
+volumes:
+  mosquitto-data:
+    driver: local
+  mosquitto-log:
+    driver: local
+
+# 使用说明:
+# 1. 在主机上运行 Frigate Config Tool:
+#    ./target/release/frigate-config-tool
+#
+# 2. 在 Config Tool 中配置卷映射,记录路径
+#
+# 3. 创建 .env 文件设置路径:
+#    FRIGATE_CONFIG_PATH=/your/config/path
+#    FRIGATE_RECORDINGS_PATH=/your/recordings/path
+#    FRIGATE_CLIPS_PATH=/your/clips/path
+#    FRIGATE_CACHE_PATH=/your/cache/path
+#
+# 4. 启动 Frigate:
+#    docker-compose -f docker-compose-standalone.yml up -d
+#
+# 5. 访问:
+#    - Frigate Config Tool: http://localhost:1420 (主机运行)
+#    - Frigate Web UI: http://localhost:5000

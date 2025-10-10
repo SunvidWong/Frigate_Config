@@ -7,9 +7,9 @@ description: "Task list template for feature implementation"
 **Input**: Design documents from `/specs/[###-feature-name]/`
 **Prerequisites**: plan.md (required), spec.md (required for user stories), research.md, data-model.md, contracts/
 
-**Tests**: The examples below include test tasks. Tests are OPTIONAL - only include them if explicitly requested in the feature specification.
+**Tests**: Per Constitution Principle VI (Test-First Development - NON-NEGOTIABLE), tests MUST be written BEFORE implementation for ALL features. Tests are MANDATORY, not optional.
 
-**Organization**: Tasks are grouped by user story to enable independent implementation and testing of each story.
+**Organization**: Tasks are grouped by user story to enable independent implementation and testing of each story. Each story follows Red-Green-Refactor: write tests → verify failure → implement → verify pass.
 
 ## Format: `[ID] [P?] [Story] Description`
 - **[P]**: Can run in parallel (different files, no dependencies)
@@ -76,21 +76,45 @@ Examples of foundational tasks (adjust based on your project):
 
 **Independent Test**: [How to verify this story works on its own]
 
-### Tests for User Story 1 (OPTIONAL - only if tests requested) ⚠️
+### Tests for User Story 1 (MANDATORY per Constitution Principle VI) ⚠️
 
 **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
+**Constitution Requirement**: Test-first development is NON-NEGOTIABLE (Principle VI).
+Tests MUST be written, run, and FAIL before any implementation code is written.
+
+#### Core Functionality Tests
+
 - [ ] T010 [P] [US1] Contract test for [endpoint] in tests/contract/test_[name].py
 - [ ] T011 [P] [US1] Integration test for [user journey] in tests/integration/test_[name].py
+- [ ] T012 [P] [US1] Unit tests for core functionality in tests/unit/test_[name].py
+
+#### Unattended Mode Tests (if CLI interface provided - Constitution Principle VIII)
+
+<!--
+  If this user story provides CLI commands for core operations (per CLI-001 through CLI-010 in spec.md),
+  add tests to verify unattended mode compliance. Delete this section if no CLI interface is provided.
+-->
+
+- [ ] T013 [P] [US1] Test CLI accepts configuration via arguments/files/env vars (CLI-001)
+- [ ] T014 [P] [US1] Test CLI non-interactive mode (no user input required) (CLI-002)
+- [ ] T015 [P] [US1] Test CLI exit codes (0 for success, non-zero for failures) (CLI-003)
+- [ ] T016 [P] [US1] Test CLI structured output (JSON format) (CLI-004)
+- [ ] T017 [P] [US1] Test CLI dry-run mode (no actual changes made) (CLI-005)
+- [ ] T018 [P] [US1] Test CLI input validation (fail fast with clear errors) (CLI-006)
+- [ ] T019 [P] [US1] Test CLI silent/quiet mode (minimal output) (CLI-007)
+
+**Checkpoint - Tests Written**: Verify all tests written and failing before proceeding to implementation
 
 ### Implementation for User Story 1
 
-- [ ] T012 [P] [US1] Create [Entity1] model in src/models/[entity1].py
-- [ ] T013 [P] [US1] Create [Entity2] model in src/models/[entity2].py
-- [ ] T014 [US1] Implement [Service] in src/services/[service].py (depends on T012, T013)
-- [ ] T015 [US1] Implement [endpoint/feature] in src/[location]/[file].py
-- [ ] T016 [US1] Add validation and error handling
-- [ ] T017 [US1] Add logging for user story 1 operations
+- [ ] T020 [P] [US1] Create [Entity1] model in src/models/[entity1].py
+- [ ] T021 [P] [US1] Create [Entity2] model in src/models/[entity2].py
+- [ ] T022 [US1] Implement [Service] in src/services/[service].py (depends on T020, T021)
+- [ ] T023 [US1] Implement [endpoint/feature] in src/[location]/[file].py
+- [ ] T024 [US1] Add validation and error handling (Constitution Principle V: input validation required)
+- [ ] T025 [US1] Add structured logging for user story 1 operations (Constitution Principle V: audit trail required)
+- [ ] T026 [US1] Verify tests now pass (Red-Green-Refactor completion)
 
 **Checkpoint**: At this point, User Story 1 should be fully functional and testable independently
 
@@ -102,17 +126,35 @@ Examples of foundational tasks (adjust based on your project):
 
 **Independent Test**: [How to verify this story works on its own]
 
-### Tests for User Story 2 (OPTIONAL - only if tests requested) ⚠️
+### Tests for User Story 2 (MANDATORY per Constitution Principle VI) ⚠️
 
-- [ ] T018 [P] [US2] Contract test for [endpoint] in tests/contract/test_[name].py
-- [ ] T019 [P] [US2] Integration test for [user journey] in tests/integration/test_[name].py
+#### Core Functionality Tests
+
+- [ ] T027 [P] [US2] Contract test for [endpoint] in tests/contract/test_[name].py
+- [ ] T028 [P] [US2] Integration test for [user journey] in tests/integration/test_[name].py
+- [ ] T029 [P] [US2] Unit tests for core functionality in tests/unit/test_[name].py
+
+#### Unattended Mode Tests (if CLI interface provided - Constitution Principle VIII)
+
+- [ ] T030 [P] [US2] Test CLI accepts configuration via arguments/files/env vars (CLI-001)
+- [ ] T031 [P] [US2] Test CLI non-interactive mode (CLI-002)
+- [ ] T032 [P] [US2] Test CLI exit codes (CLI-003)
+- [ ] T033 [P] [US2] Test CLI structured output (JSON format) (CLI-004)
+- [ ] T034 [P] [US2] Test CLI dry-run mode (CLI-005)
+- [ ] T035 [P] [US2] Test CLI input validation (CLI-006)
+- [ ] T036 [P] [US2] Test CLI silent/quiet mode (CLI-007)
+
+**Checkpoint - Tests Written**: Verify all tests written and failing before proceeding to implementation
 
 ### Implementation for User Story 2
 
-- [ ] T020 [P] [US2] Create [Entity] model in src/models/[entity].py
-- [ ] T021 [US2] Implement [Service] in src/services/[service].py
-- [ ] T022 [US2] Implement [endpoint/feature] in src/[location]/[file].py
-- [ ] T023 [US2] Integrate with User Story 1 components (if needed)
+- [ ] T037 [P] [US2] Create [Entity] model in src/models/[entity].py
+- [ ] T038 [US2] Implement [Service] in src/services/[service].py
+- [ ] T039 [US2] Implement [endpoint/feature] in src/[location]/[file].py
+- [ ] T040 [US2] Add validation and error handling (Constitution Principle V)
+- [ ] T041 [US2] Add structured logging (Constitution Principle V)
+- [ ] T042 [US2] Integrate with User Story 1 components (if needed)
+- [ ] T043 [US2] Verify tests now pass
 
 **Checkpoint**: At this point, User Stories 1 AND 2 should both work independently
 
@@ -124,16 +166,34 @@ Examples of foundational tasks (adjust based on your project):
 
 **Independent Test**: [How to verify this story works on its own]
 
-### Tests for User Story 3 (OPTIONAL - only if tests requested) ⚠️
+### Tests for User Story 3 (MANDATORY per Constitution Principle VI) ⚠️
 
-- [ ] T024 [P] [US3] Contract test for [endpoint] in tests/contract/test_[name].py
-- [ ] T025 [P] [US3] Integration test for [user journey] in tests/integration/test_[name].py
+#### Core Functionality Tests
+
+- [ ] T044 [P] [US3] Contract test for [endpoint] in tests/contract/test_[name].py
+- [ ] T045 [P] [US3] Integration test for [user journey] in tests/integration/test_[name].py
+- [ ] T046 [P] [US3] Unit tests for core functionality in tests/unit/test_[name].py
+
+#### Unattended Mode Tests (if CLI interface provided - Constitution Principle VIII)
+
+- [ ] T047 [P] [US3] Test CLI accepts configuration via arguments/files/env vars (CLI-001)
+- [ ] T048 [P] [US3] Test CLI non-interactive mode (CLI-002)
+- [ ] T049 [P] [US3] Test CLI exit codes (CLI-003)
+- [ ] T050 [P] [US3] Test CLI structured output (JSON format) (CLI-004)
+- [ ] T051 [P] [US3] Test CLI dry-run mode (CLI-005)
+- [ ] T052 [P] [US3] Test CLI input validation (CLI-006)
+- [ ] T053 [P] [US3] Test CLI silent/quiet mode (CLI-007)
+
+**Checkpoint - Tests Written**: Verify all tests written and failing before proceeding to implementation
 
 ### Implementation for User Story 3
 
-- [ ] T026 [P] [US3] Create [Entity] model in src/models/[entity].py
-- [ ] T027 [US3] Implement [Service] in src/services/[service].py
-- [ ] T028 [US3] Implement [endpoint/feature] in src/[location]/[file].py
+- [ ] T054 [P] [US3] Create [Entity] model in src/models/[entity].py
+- [ ] T055 [US3] Implement [Service] in src/services/[service].py
+- [ ] T056 [US3] Implement [endpoint/feature] in src/[location]/[file].py
+- [ ] T057 [US3] Add validation and error handling (Constitution Principle V)
+- [ ] T058 [US3] Add structured logging (Constitution Principle V)
+- [ ] T059 [US3] Verify tests now pass
 
 **Checkpoint**: All user stories should now be independently functional
 
@@ -147,12 +207,37 @@ Examples of foundational tasks (adjust based on your project):
 
 **Purpose**: Improvements that affect multiple user stories
 
-- [ ] TXXX [P] Documentation updates in docs/
+### Test Coverage & Quality
+
+- [ ] TXXX Verify test coverage >80% for core modules (Constitution Principle VI requirement)
+- [ ] TXXX Multi-platform validation (Constitution Principle III: test on 2+ platforms)
+- [ ] TXXX Security audit: input validation, audit logging (Constitution Principle V)
+
+### Unattended Mode & CI/CD Integration (Constitution Principle VIII)
+
+<!--
+  If ANY user story provides CLI interfaces, verify full compliance with Principle VIII.
+  Delete this section if the feature is purely internal with no CLI commands.
+-->
+
+- [ ] TXXX Verify all core operations have CLI equivalents (detect, configure, validate, deploy)
+- [ ] TXXX Verify CLI commands support non-interactive mode (--non-interactive or equivalent)
+- [ ] TXXX Verify CLI exit codes follow standards (0=success, non-zero=failure)
+- [ ] TXXX Verify structured logging output (JSON format support)
+- [ ] TXXX Verify dry-run mode availability (--dry-run flags)
+- [ ] TXXX Test CI/CD integration (run in Docker container, GitOps workflow)
+- [ ] TXXX Document environment variables for configuration
+- [ ] TXXX Verify health check endpoints/commands available
+
+### Documentation & Release
+
+- [ ] TXXX [P] Documentation updates in docs/ (Constitution Principle VII: public APIs need examples)
+- [ ] TXXX [P] Add CLI usage examples to README.md
+- [ ] TXXX [P] Add CI/CD integration examples to docs/
 - [ ] TXXX Code cleanup and refactoring
 - [ ] TXXX Performance optimization across all stories
-- [ ] TXXX [P] Additional unit tests (if requested) in tests/unit/
-- [ ] TXXX Security hardening
 - [ ] TXXX Run quickstart.md validation
+- [ ] TXXX Verify Constitution compliance across all implemented features
 
 ---
 

@@ -31,7 +31,18 @@
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-[Gates determined based on constitution file]
+Verify compliance with Frigate Configuration Tool Constitution (v1.3.0):
+
+- [ ] **User First**: Does this feature risk overwriting user configurations? If yes, conflict detection and rollback MUST be included.
+- [ ] **Automation + Control**: Does this feature maintain manual override capability? Generated outputs MUST remain human-editable.
+- [ ] **Cross-Platform Support**: Will this work on Windows, Linux, and macOS? Test plan MUST include at least 2 platforms.
+- [ ] **Modular Design**: Can this be implemented as an independent module with clear interfaces? Dependencies MUST be justified.
+- [ ] **Security & Permissions**: Does this access privileged resources? If yes, explicit authorization and audit logging MUST be implemented.
+- [ ] **AI-Driven Testing**: Are tests written first? Test coverage MUST be >80% for core functionality.
+- [ ] **Open Source Community**: Is documentation included? Public APIs MUST have usage examples.
+- [ ] **Unattended Mode Support**: Does this feature provide CLI interface? Non-interactive mode, proper exit codes, and structured logging MUST be supported.
+
+**Violations Requiring Justification**: [List any principles that cannot be fully satisfied and explain why]
 
 ## Project Structure
 

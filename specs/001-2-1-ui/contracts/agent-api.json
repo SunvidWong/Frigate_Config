@@ -1,0 +1,163 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Frigate Config Tool - Agent API",
+    "description": "Hardware detection agent JSON output schema. Agent is invoked as CLI tool with `agent detect` command and outputs JSON to stdout.",
+    "version": "1.0.0",
+    "contact": {
+      "name": "Frigate Config Tool",
+      "url": "https://github.com/frigate-config-tool"
+    },
+    "license": {
+      "name": "Apache 2.0",
+      "url": "https://www.apache.org/licenses/LICENSE-2.0"
+    }
+  },
+  "paths": {},
+  "components": {
+    "schemas": {
+      "HardwareDetectionResponse": {
+        "type": "object",
+        "required": ["devices", "platform", "architecture", "detected_at", "errors"],
+        "properties": {
+          "devices": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HardwareDevice"
+            },
+            "description": "List of detected hardware devices"
+          },
+          "platform": {
+            "type": "string",
+            "enum": ["linux", "windows", "darwin"],
+            "description": "Operating system platform"
+          },
+          "architecture": {
+            "type": "string",
+            "enum": ["x86_64", "arm64", "arm32"],
+            "description": "CPU architecture"
+          },
+          "detected_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO 8601 timestamp of detection"
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DetectionError"
+            },
+            "description": "Non-fatal errors encountered during detection"
+          }
+        },
+        "example": {
+          "devices": [
+            {
+              "type": "tpu",
+              "name": "Google Coral USB Accelerator",
+              "device_path": "/dev/apex_0",
+              "capabilities": ["tensorflow_lite"],
+              "driver": "apex",
+              "vendor_id": "1a6e:089a",
+              "detection_source": "lsusb",
+              "available": true
+            },
+            {
+              "type": "camera",
+              "name": "Logitech HD Webcam C270",
+              "device_path": "/dev/video0",
+              "capabilities": ["mjpeg", "yuyv"],
+              "driver": "uvcvideo",
+              "vendor_id": "046d:0825",
+              "detection_source": "/sys/class/video4linux/",
+              "available": true
+            }
+          ],
+          "platform": "linux",
+          "architecture": "x86_64",
+          "detected_at": "2025-10-08T14:32:15Z",
+          "errors": []
+        }
+      },
+      "HardwareDevice": {
+        "type": "object",
+        "required": ["type", "name", "device_path", "capabilities", "detection_source", "available"],
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": ["gpu", "tpu", "camera", "capture_card"],
+            "description": "Device category"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "description": "Human-readable device name"
+          },
+          "device_path": {
+            "type": "string",
+            "minLength": 1,
+            "description": "System device path (e.g., /dev/video0, COM3, /dev/apex_0)"
+          },
+          "capabilities": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "List of supported capabilities (h264_decode, hevc_encode, mjpeg, etc.)"
+          },
+          "driver": {
+            "type": "string",
+            "nullable": true,
+            "description": "Driver name if available (nvidia, intel-qsv, v4l2, etc.)"
+          },
+          "vendor_id": {
+            "type": "string",
+            "nullable": true,
+            "description": "PCI vendor ID or USB VID:PID"
+          },
+          "detection_source": {
+            "type": "string",
+            "description": "Tool or method used for detection (lsusb, nvidia-smi, system_profiler, etc.)"
+          },
+          "available": {
+            "type": "boolean",
+            "description": "Whether device is currently accessible"
+          },
+          "error": {
+            "type": "string",
+            "nullable": true,
+            "description": "Error message if detection failed for this device"
+          }
+        }
+      },
+      "DetectionError": {
+        "type": "object",
+        "required": ["source", "message"],
+        "properties": {
+          "source": {
+            "type": "string",
+            "description": "Detection source that failed (e.g., 'nvidia-smi', 'lsusb')"
+          },
+          "message": {
+            "type": "string",
+            "description": "Error message"
+          },
+          "recoverable": {
+            "type": "boolean",
+            "description": "Whether this error can be retried"
+          }
+        },
+        "example": {
+          "source": "nvidia-smi",
+          "message": "nvidia-smi command not found - NVIDIA GPU detection skipped",
+          "recoverable": false
+        }
+      }
+    }
+  },
+  "externalDocs": {
+    "description": "Agent CLI Usage",
+    "url": "https://github.com/frigate-config-tool/agent/README.md"
+  }
+}

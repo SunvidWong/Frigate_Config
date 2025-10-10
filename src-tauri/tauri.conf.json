@@ -1,0 +1,86 @@
+{
+  "build": {
+    "beforeDevCommand": "cd ../src-ui && npm run dev",
+    "beforeBuildCommand": "cd ../src-ui && npm run build",
+    "devPath": "http://localhost:5173",
+    "distDir": "../src-ui/dist",
+    "withGlobalTauri": false
+  },
+  "package": {
+    "productName": "Frigate Config Tool",
+    "version": "0.1.0"
+  },
+  "tauri": {
+    "allowlist": {
+      "all": false,
+      "shell": {
+        "all": false,
+        "open": true,
+        "execute": true,
+        "sidecar": true,
+        "scope": [
+          {
+            "name": "agent",
+            "sidecar": true,
+            "args": ["detect", "--json"]
+          },
+          {
+            "name": "docker",
+            "cmd": "docker",
+            "args": true
+          }
+        ]
+      },
+      "dialog": {
+        "all": true,
+        "open": true,
+        "save": true
+      },
+      "fs": {
+        "all": false,
+        "readFile": true,
+        "writeFile": true,
+        "readDir": true,
+        "copyFile": true,
+        "createDir": true,
+        "removeDir": true,
+        "removeFile": true,
+        "renameFile": true,
+        "exists": true,
+        "scope": ["$HOME/.frigate-config-tool/**", "$HOME/frigate*.yml", "$HOME/frigate*.yaml"]
+      },
+      "path": {
+        "all": true
+      },
+      "os": {
+        "all": true
+      }
+    },
+    "bundle": {
+      "active": true,
+      "targets": "all",
+      "identifier": "com.frigate-config-tool.app",
+      "icon": [
+        "icons/32x32.png",
+        "icons/128x128.png",
+        "icons/128x128@2x.png",
+        "icons/icon.icns",
+        "icons/icon.ico"
+      ]
+    },
+    "security": {
+      "csp": null
+    },
+    "windows": [
+      {
+        "fullscreen": false,
+        "resizable": true,
+        "title": "Frigate Config Tool",
+        "width": 1200,
+        "height": 800,
+        "minWidth": 800,
+        "minHeight": 600
+      }
+    ]
+  }
+}

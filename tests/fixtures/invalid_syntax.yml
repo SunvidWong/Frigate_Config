@@ -1,0 +1,5 @@
+# Invalid YAML syntax
+mqtt:
+  enabled: [invalid
+cameras test_camera:
+  enabled: "not a boolean
