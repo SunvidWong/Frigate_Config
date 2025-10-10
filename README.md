@@ -88,14 +88,55 @@ Install Microsoft Visual Studio C++ Build Tools
 
 ## 🚀 Quick Start
 
-**Note: The application is not yet functional - Phase 1 (setup) is complete but the core features are not implemented yet.**
+### 🐳 Docker Deployment (推荐)
 
-### Development Setup
+**最简单的安装方式 - 无需安装 Rust、Node.js 等依赖！**
+
+#### 一键部署 Web 版本
+
+```bash
+# 克隆仓库
+git clone https://github.com/SunvidWong/Frigate_Config.git
+cd Frigate_Config
+
+# 一键部署（自动构建和启动）
+./docker-deploy.sh
+
+# 或直接使用 docker-compose
+docker-compose -f docker-compose.web.yml up -d
+
+# 访问应用
+# 浏览器打开: http://localhost:8080
+```
+
+#### 手动 Docker 部署
+
+```bash
+# 构建镜像
+docker build -f Dockerfile.web -t frigate-config-web:latest .
+
+# 启动容器
+docker run -d \
+  --name frigate-config-web \
+  -p 8080:80 \
+  --restart unless-stopped \
+  frigate-config-web:latest
+
+# 访问 http://localhost:8080
+```
+
+**详细 Docker 部署文档**: 📖 [DOCKER_INSTALL.md](DOCKER_INSTALL.md)
+
+---
+
+### 💻 Development Setup (开发模式)
+
+如果需要修改代码或贡献到项目：
 
 ```bash
 # Clone the repository
-git clone https://github.com/frigate-config-tool/frigate-config-tool.git
-cd frigate-config-tool
+git clone https://github.com/SunvidWong/Frigate_Config.git
+cd Frigate_Config
 
 # Install frontend dependencies
 cd src-ui
@@ -124,6 +165,7 @@ Output will be in `src-tauri/target/release/bundle/`
 
 ### User Documentation
 - **[Quick Start Guide](#-quick-start)** - Get started quickly
+- **[Docker Installation Guide](DOCKER_INSTALL.md)** - 🐳 Complete Docker deployment documentation
 - **[Usage Guide](#usage)** - Step-by-step usage instructions
 - **[Troubleshooting](#troubleshooting)** - Common issues and solutions
 

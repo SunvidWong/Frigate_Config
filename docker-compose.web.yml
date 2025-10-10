@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  frigate-config-web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    container_name: frigate-config-web
+    ports:
+      - "8080:80"
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    labels:
+      - "com.frigate.config.app=web"
+      - "com.frigate.config.version=1.0"
+
+networks:
+  default:
+    name: frigate-config-network
