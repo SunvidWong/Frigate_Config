@@ -45,9 +45,8 @@ COPY src-tauri/ ./src-tauri/
 # Copy built frontend to expected location
 COPY --from=frontend-builder /app/frontend/dist ./src-ui/dist/
 
-# Build release binary
-WORKDIR /app/src-tauri
-RUN cargo build --release
+# Build release binary from workspace root
+RUN cargo build --release --manifest-path=src-tauri/Cargo.toml
 
 # Stage 3: Runtime image
 FROM debian:bookworm-slim
@@ -62,8 +61,8 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
-# Copy binary from builder
-COPY --from=backend-builder /app/src-tauri/target/release/frigate-config-tool /app/
+# Copy binary from builder (built from workspace root)
+COPY --from=backend-builder /app/target/release/frigate-config-tool /app/
 COPY --from=frontend-builder /app/frontend/dist /app/web/
 
 # Create data directory
