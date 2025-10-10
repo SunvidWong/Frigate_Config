@@ -6,14 +6,16 @@
 
 | 方式 | 优点 | 缺点 | 适用场景 |
 |------|------|------|----------|
-| **方式1: 一键脚本** | 最简单，自动化 | 需要 Node.js | 推荐给所有用户 |
+| **方式0: 预构建镜像** | 🚀 最快，无需构建 | 镜像大小 ~50MB | ⭐ 强烈推荐所有用户 |
+| **方式1: 一键脚本** | 自动化，可自定义 | 需要 Node.js | 需要修改代码的用户 |
 | **方式2: 明文配置** | 配置清晰，易理解 | 需手动构建前端 | 了解 Docker 的用户 |
 | **方式3: 完整镜像** | 独立镜像，可分发 | 构建时间长 | 生产环境 |
 
 ## 目录
 
 - [快速开始](#快速开始)
-- [方式1: 一键启动脚本 (推荐)](#方式1-一键启动脚本-推荐)
+- [方式0: 使用预构建镜像 (⭐ 最推荐)](#方式0-使用预构建镜像--最推荐)
+- [方式1: 一键启动脚本](#方式1-一键启动脚本-推荐)
 - [方式2: 明文 Docker Compose](#方式2-明文-docker-compose)
 - [方式3: 完整镜像构建](#方式3-完整镜像构建)
 - [方式4: 使用完整 Tauri 版本](#方式4-使用完整-tauri-版本)
@@ -36,23 +38,148 @@
 - 以上所有要求
 - 至少 5GB 可用磁盘空间（Rust 编译需要）
 
-### ⚡ 最快速启动
+### ⚡ 最快速启动（使用预构建镜像）
 
 ```bash
-# 克隆仓库
-git clone https://github.com/SunvidWong/Frigate_Config.git
-cd Frigate_Config
-
-# 一键启动（推荐）
-./start-docker.sh
+# 一键安装（无需克隆仓库）
+curl -fsSL https://raw.githubusercontent.com/SunvidWong/Frigate_Config/001-2-1-ui/install.sh | bash
 
 # 访问应用
 # 浏览器打开: http://localhost:8080
 ```
 
+**或手动运行**:
+```bash
+docker run -d \
+  --name frigate-config-web \
+  -p 8080:80 \
+  --restart unless-stopped \
+  sunvidwong/frigate-config-web:latest
+```
+
 ---
 
-## 方式1: 一键启动脚本 (推荐)
+## 方式0: 使用预构建镜像 (⭐ 最推荐)
+
+**最快的部署方式！** 直接从 Docker Hub 拉取已构建好的镜像，无需任何本地构建。
+
+### 优势
+
+- ✅ **最快速度** - 无需等待构建，直接拉取运行
+- ✅ **零依赖** - 无需 Node.js、npm、Git
+- ✅ **最简单** - 一条命令完成部署
+- ✅ **镜像小** - 仅 ~50MB (nginx:alpine + 前端)
+- ✅ **自动更新** - 拉取 latest 标签即可更新
+
+### 方法 1: 使用一键安装脚本
+
+```bash
+# 下载并运行安装脚本
+curl -fsSL https://raw.githubusercontent.com/SunvidWong/Frigate_Config/001-2-1-ui/install.sh | bash
+```
+
+脚本会自动:
+1. 检查 Docker 环境
+2. 拉取最新镜像
+3. 启动容器
+4. 显示访问地址
+
+### 方法 2: 使用 docker run
+
+```bash
+# 拉取镜像
+docker pull sunvidwong/frigate-config-web:latest
+
+# 启动容器
+docker run -d \
+  --name frigate-config-web \
+  -p 8080:80 \
+  --restart unless-stopped \
+  sunvidwong/frigate-config-web:latest
+
+# 访问 http://localhost:8080
+```
+
+### 方法 3: 使用 docker-compose
+
+下载 `docker-compose.prod.yml`:
+```bash
+curl -O https://raw.githubusercontent.com/SunvidWong/Frigate_Config/001-2-1-ui/docker-compose.prod.yml
+```
+
+内容:
+```yaml
+services:
+  frigate-config-web:
+    image: sunvidwong/frigate-config-web:latest
+    container_name: frigate-config-web
+    ports:
+      - "8080:80"
+    restart: unless-stopped
+```
+
+启动:
+```bash
+docker compose -f docker-compose.prod.yml up -d
+```
+
+### 访问应用
+
+浏览器打开: `http://localhost:8080`
+
+**远程访问**: 替换 `localhost` 为服务器 IP 地址
+
+### 更新镜像
+
+```bash
+# 拉取最新镜像
+docker pull sunvidwong/frigate-config-web:latest
+
+# 停止并删除旧容器
+docker stop frigate-config-web
+docker rm frigate-config-web
+
+# 启动新容器
+docker run -d \
+  --name frigate-config-web \
+  -p 8080:80 \
+  --restart unless-stopped \
+  sunvidwong/frigate-config-web:latest
+
+# 或使用 docker-compose
+docker compose -f docker-compose.prod.yml pull
+docker compose -f docker-compose.prod.yml up -d --force-recreate
+```
+
+### 镜像信息
+
+- **镜像名**: `sunvidwong/frigate-config-web`
+- **标签**:
+  - `latest` - 最新版本
+  - `v1.0.0` - 特定版本
+- **镜像大小**: ~50MB
+- **基础镜像**: nginx:alpine
+- **架构支持**: amd64, arm64
+
+### 停止和删除
+
+```bash
+# 停止容器
+docker stop frigate-config-web
+
+# 启动容器
+docker start frigate-config-web
+
+# 删除容器
+docker rm -f frigate-config-web
+
+# 删除镜像
+docker rmi sunvidwong/frigate-config-web:latest
+```
+
+---
+
+## 方式1: 一键启动脚本
 
 最简单的部署方式，自动构建前端并启动容器。
 
