@@ -103,7 +103,7 @@ docker run -d \
   --name frigate-config-web \
   -p 8080:80 \
   --restart unless-stopped \
-  sunvidwong/frigate-config-web:latest
+  ghcr.io/sunvidwong/frigate_config:latest
 
 # 访问 http://localhost:8080
 ```

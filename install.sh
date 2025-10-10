@@ -64,8 +64,8 @@ read -p "请输入 Web 访问端口 [默认: 8080]: " web_port
 web_port=${web_port:-8080}
 
 # 拉取镜像
-print_step "拉取 Docker 镜像（sunvidwong/frigate-config-web:latest）..."
-if docker pull sunvidwong/frigate-config-web:latest; then
+print_step "拉取 Docker 镜像（ghcr.io/sunvidwong/frigate_config:latest）..."
+if docker pull ghcr.io/sunvidwong/frigate_config:latest; then
     print_success "镜像拉取成功"
 else
     print_error "镜像拉取失败"
@@ -79,7 +79,7 @@ if docker run -d \
     --name frigate-config-web \
     -p ${web_port}:80 \
     --restart unless-stopped \
-    sunvidwong/frigate-config-web:latest; then
+    ghcr.io/sunvidwong/frigate_config:latest; then
     print_success "容器启动成功"
 else
     print_error "容器启动失败"
@@ -106,7 +106,7 @@ if docker ps | grep -q frigate-config-web; then
     echo "    删除容器: docker rm -f frigate-config-web"
     echo ""
     echo "  更新镜像:"
-    echo "    docker pull sunvidwong/frigate-config-web:latest"
+    echo "    docker pull ghcr.io/sunvidwong/frigate_config:latest"
     echo "    docker stop frigate-config-web"
     echo "    docker rm frigate-config-web"
     echo "    然后重新运行本脚本"

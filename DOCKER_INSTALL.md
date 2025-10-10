@@ -54,7 +54,7 @@ docker run -d \
   --name frigate-config-web \
   -p 8080:80 \
   --restart unless-stopped \
-  sunvidwong/frigate-config-web:latest
+  ghcr.io/sunvidwong/frigate_config:latest
 ```
 
 ---
@@ -88,14 +88,14 @@ curl -fsSL https://raw.githubusercontent.com/SunvidWong/Frigate_Config/001-2-1-u
 
 ```bash
 # 拉取镜像
-docker pull sunvidwong/frigate-config-web:latest
+docker pull ghcr.io/sunvidwong/frigate_config:latest
 
 # 启动容器
 docker run -d \
   --name frigate-config-web \
   -p 8080:80 \
   --restart unless-stopped \
-  sunvidwong/frigate-config-web:latest
+  ghcr.io/sunvidwong/frigate_config:latest
 
 # 访问 http://localhost:8080
 ```
@@ -111,7 +111,7 @@ curl -O https://raw.githubusercontent.com/SunvidWong/Frigate_Config/001-2-1-ui/d
 ```yaml
 services:
   frigate-config-web:
-    image: sunvidwong/frigate-config-web:latest
+    image: ghcr.io/sunvidwong/frigate_config:latest
     container_name: frigate-config-web
     ports:
       - "8080:80"
@@ -133,7 +133,7 @@ docker compose -f docker-compose.prod.yml up -d
 
 ```bash
 # 拉取最新镜像
-docker pull sunvidwong/frigate-config-web:latest
+docker pull ghcr.io/sunvidwong/frigate_config:latest
 
 # 停止并删除旧容器
 docker stop frigate-config-web
@@ -144,7 +144,7 @@ docker run -d \
   --name frigate-config-web \
   -p 8080:80 \
   --restart unless-stopped \
-  sunvidwong/frigate-config-web:latest
+  ghcr.io/sunvidwong/frigate_config:latest
 
 # 或使用 docker-compose
 docker compose -f docker-compose.prod.yml pull
@@ -153,7 +153,7 @@ docker compose -f docker-compose.prod.yml up -d --force-recreate
 
 ### 镜像信息
 
-- **镜像名**: `sunvidwong/frigate-config-web`
+- **镜像名**: `ghcr.io/sunvidwong/frigate_config`
 - **标签**:
   - `latest` - 最新版本
   - `v1.0.0` - 特定版本
@@ -174,7 +174,7 @@ docker start frigate-config-web
 docker rm -f frigate-config-web
 
 # 删除镜像
-docker rmi sunvidwong/frigate-config-web:latest
+docker rmi ghcr.io/sunvidwong/frigate_config:latest
 ```
 
 ---
@@ -569,10 +569,10 @@ location /frigate-config/ {
 
 ```bash
 # 拉取预构建镜像
-docker pull sunvidwong/frigate-config-web:latest
+docker pull ghcr.io/sunvidwong/frigate_config:latest
 
 # 运行
-docker run -d -p 8080:80 sunvidwong/frigate-config-web:latest
+docker run -d -p 8080:80 ghcr.io/sunvidwong/frigate_config:latest
 ```
 
 ---
