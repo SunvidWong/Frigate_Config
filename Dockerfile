@@ -36,8 +36,7 @@ RUN apt-get update && apt-get install -y \
     librsvg2-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy Cargo files
-COPY Cargo.toml Cargo.lock ./
+# Copy Rust source code
 COPY src-tauri/ ./src-tauri/
 
 # Copy built frontend to expected location
