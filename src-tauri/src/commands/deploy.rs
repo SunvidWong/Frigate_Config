@@ -440,6 +440,12 @@ pub async fn add_hardware_device_to_config(
             .map_err(|e| AppError::Deployment(format!("Failed to write config: {}", e)))?;
 
         info!("Saved hardware device to config: {}", config_path.display());
+
+        // Update docker-compose.yml if it exists
+        if let Err(e) = update_docker_compose_devices().await {
+            warn!("Failed to update docker-compose.yml: {}", e);
+            // Don't fail the entire operation if docker-compose update fails
+        }
     } else {
         info!("Device already exists in config: {}", device_path);
     }
@@ -450,6 +456,68 @@ pub async fn add_hardware_device_to_config(
         device_path,
         device_type,
     })
+}
+
+/// Update docker-compose.yml with current hardware devices
+async fn update_docker_compose_devices() -> Result<(), AppError> {
+    use std::path::Path;
+
+    // Find docker-compose.yml in project root
+    let possible_paths = vec![
+        "docker-compose.yml",
+        "../docker-compose.yml",
+        "../../docker-compose.yml",
+    ];
+
+    let compose_path = possible_paths.iter()
+        .find(|p| Path::new(p).exists())
+        .ok_or_else(|| AppError::Deployment("docker-compose.yml not found".to_string()))?;
+
+    info!("Found docker-compose.yml at: {}", compose_path);
+
+    // Load hardware devices
+    let devices = load_hardware_devices().await?;
+
+    if devices.is_empty() {
+        info!("No devices to add to docker-compose.yml");
+        return Ok(());
+    }
+
+    // Read docker-compose.yml
+    let content = tokio::fs::read_to_string(compose_path).await
+        .map_err(|e| AppError::Deployment(format!("Failed to read docker-compose.yml: {}", e)))?;
+
+    // Parse YAML
+    let mut yaml: serde_yaml::Value = serde_yaml::from_str(&content)
+        .map_err(|e| AppError::Deployment(format!("Failed to parse docker-compose.yml: {}", e)))?;
+
+    // Navigate to services.frigate-config-tool
+    if let Some(services) = yaml.get_mut("services") {
+        if let Some(service) = services.get_mut("frigate-config-tool") {
+            // Create or update devices array
+            let device_mappings: Vec<serde_yaml::Value> = devices.iter()
+                .map(|d| serde_yaml::Value::String(format!("{}:{}", d.device_path, d.device_path)))
+                .collect();
+
+            service.as_mapping_mut()
+                .ok_or_else(|| AppError::Deployment("Invalid service structure".to_string()))?
+                .insert(
+                    serde_yaml::Value::String("devices".to_string()),
+                    serde_yaml::Value::Sequence(device_mappings),
+                );
+
+            // Write back to file
+            let updated_content = serde_yaml::to_string(&yaml)
+                .map_err(|e| AppError::Deployment(format!("Failed to serialize YAML: {}", e)))?;
+
+            tokio::fs::write(compose_path, updated_content).await
+                .map_err(|e| AppError::Deployment(format!("Failed to write docker-compose.yml: {}", e)))?;
+
+            info!("Updated docker-compose.yml with {} devices", devices.len());
+        }
+    }
+
+    Ok(())
 }
 
 /// Validate hardware device existence

@@ -240,16 +240,15 @@ const CameraDiscoveryPage: React.FC = () => {
   return (
     <div className="px-4 py-6 sm:px-0">
       <div className="bg-white shadow rounded-lg">
-        {/* Environment Warning */}
+        {/* Environment Info */}
         {!isTauri && (
-          <div className="px-6 py-4 border-b border-yellow-200 bg-yellow-50">
+          <div className="px-6 py-4 border-b border-blue-200 bg-blue-50">
             <div className="flex items-start">
-              <AlertCircle className="w-5 h-5 text-yellow-600 mt-0.5 mr-3 flex-shrink-0" />
+              <Wifi className="w-5 h-5 text-blue-600 mt-0.5 mr-3 flex-shrink-0" />
               <div>
-                <h3 className="text-sm font-medium text-yellow-800">摄像头扫描功能不可用</h3>
-                <p className="mt-1 text-sm text-yellow-700">
-                  您当前在浏览器环境中运行此应用。摄像头扫描功能仅在桌面应用中可用。
-                  如需使用此功能,请下载并安装桌面版本。
+                <h3 className="text-sm font-medium text-blue-800">Docker / 浏览器模式</h3>
+                <p className="mt-1 text-sm text-blue-700">
+                  您当前在 Docker/浏览器环境中运行。内网摄像头扫描功能可正常使用,无需特殊设备权限。
                 </p>
               </div>
             </div>
@@ -270,9 +269,8 @@ const CameraDiscoveryPage: React.FC = () => {
             </div>
             <button
               onClick={handleQuickScan}
-              disabled={isScanning || !isTauri}
+              disabled={isScanning}
               className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-              title={!isTauri ? '仅在桌面应用中可用' : ''}
             >
               {isScanning ? (
                 <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
@@ -327,9 +325,8 @@ const CameraDiscoveryPage: React.FC = () => {
           <div className="mt-4">
             <button
               onClick={handleCustomScan}
-              disabled={isScanning || !isTauri}
+              disabled={isScanning}
               className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-              title={!isTauri ? '仅在桌面应用中可用' : ''}
             >
               <Play className="w-4 h-4 mr-2" />
               自定义扫描
