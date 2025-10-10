@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { useTauriCommand } from '../hooks/useTauriCommand'
-import { safeInvoke } from '../utils/tauri'
+import { safeInvoke, isTauriEnvironment } from '../utils/tauri'
 import Button from '../components/Button'
 import Card from '../components/Card'
 import Modal from '../components/Modal'
@@ -20,6 +20,7 @@ const HardwarePage: React.FC = () => {
   const [selectedAvailability, setSelectedAvailability] = useState<HardwareAvailability | null>(null)
   const [addingDevice, setAddingDevice] = useState<string | null>(null)
   const [addSuccess, setAddSuccess] = useState<string | null>(null)
+  const [isInTauriEnv, setIsInTauriEnv] = useState(false)
 
   const {
     data: detectionData,
@@ -34,10 +35,17 @@ const HardwarePage: React.FC = () => {
     execute: checkAvailability,
   } = useTauriCommand<HardwareAvailability[]>('get_hardware_availability')
 
-  // Initial detection on mount
+  // Check environment on mount
   useEffect(() => {
-    runDetection()
+    setIsInTauriEnv(isTauriEnvironment())
   }, [])
+
+  // Initial detection on mount (only in Tauri environment)
+  useEffect(() => {
+    if (isInTauriEnv) {
+      runDetection()
+    }
+  }, [isInTauriEnv])
 
   // Update devices when detection completes
   useEffect(() => {
@@ -139,6 +147,24 @@ const HardwarePage: React.FC = () => {
         </p>
       </div>
 
+      {/* Environment Warning */}
+      {!isInTauriEnv && (
+        <Card className="mb-6 bg-yellow-50 border border-yellow-200">
+          <div className="flex items-start">
+            <span className="text-yellow-500 text-2xl mr-3">⚠️</span>
+            <div className="flex-1">
+              <h3 className="text-lg font-semibold text-yellow-900 mb-2">硬件检测功能不可用</h3>
+              <p className="text-sm text-yellow-800 mb-3">
+                您当前在浏览器环境中运行此应用。硬件检测和自动添加功能仅在桌面应用中可用。
+              </p>
+              <p className="text-sm text-yellow-800">
+                💡 <strong>提示:</strong> 如需使用硬件检测功能,请下载并安装桌面版本。在Docker部署版本中,您可以手动在部署配置中添加设备路径。
+              </p>
+            </div>
+          </div>
+        </Card>
+      )}
+
       {/* Success Message */}
       {addSuccess && (
         <div className="mb-6 bg-green-50 border border-green-200 rounded-lg p-4">
@@ -155,6 +181,7 @@ const HardwarePage: React.FC = () => {
           <Button
             onClick={handleDetect}
             loading={detecting}
+            disabled={!isInTauriEnv}
             icon="🔄"
           >
             {detecting ? '检测中...' : '重新检测'}
@@ -162,6 +189,7 @@ const HardwarePage: React.FC = () => {
           <Button
             onClick={handleCheckAvailability}
             loading={checkingAvailability}
+            disabled={!isInTauriEnv}
             icon="📊"
             variant="outline"
           >
