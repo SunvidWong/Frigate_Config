@@ -1,7 +1,7 @@
 // Prevents additional console window on Windows in release mode
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use tracing::info;
+use tracing::{error, info};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 mod commands;
@@ -9,6 +9,7 @@ mod config_engine;
 mod database;
 mod deployment;
 mod error;
+mod http_server;  // HTTP server for Docker mode
 mod models;
 mod network;  // Network utilities and camera discovery
 mod state;
@@ -26,6 +27,34 @@ fn main() {
 
     info!("Starting Frigate Configuration Tool");
 
+    // Check if we should run in HTTP mode (Docker)
+    if http_server::should_run_http_mode() {
+        info!("Running in HTTP server mode (Docker)");
+        run_http_mode();
+        return;
+    }
+
+    // Run in Tauri mode (Desktop)
+    info!("Running in Tauri mode (Desktop)");
+    run_tauri_mode();
+}
+
+/// Run HTTP server mode for Docker
+#[tokio::main]
+async fn run_http_mode() {
+    let port = std::env::var("PORT")
+        .unwrap_or_else(|_| "1420".to_string())
+        .parse()
+        .unwrap_or(1420);
+
+    if let Err(e) = http_server::run_http_server(port).await {
+        error!("HTTP server error: {}", e);
+        std::process::exit(1);
+    }
+}
+
+/// Run Tauri desktop application mode
+fn run_tauri_mode() {
     // Initialize application state
     let app_state = state::AppState::new()
         .expect("Failed to initialize application state");

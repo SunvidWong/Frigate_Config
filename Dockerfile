@@ -70,8 +70,10 @@ RUN mkdir -p /app/data
 # Set environment variables
 ENV RUST_LOG=info
 ENV FRIGATE_CONFIG_DATA_DIR=/app/data
+ENV FRIGATE_HTTP_MODE=true
+ENV PORT=1420
 
-# Expose port (Tauri will bind to this)
+# Expose port for HTTP server
 EXPOSE 1420
 
 # Health check

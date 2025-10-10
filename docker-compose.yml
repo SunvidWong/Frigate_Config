@@ -23,6 +23,8 @@ services:
       - RUST_LOG=info
       - FRIGATE_CONFIG_DATA_DIR=/app/data
       - NODE_ENV=production
+      - FRIGATE_HTTP_MODE=true
+      - PORT=1420
     restart: unless-stopped
     networks:
       - frigate-network

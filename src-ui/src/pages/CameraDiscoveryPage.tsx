@@ -242,22 +242,14 @@ const CameraDiscoveryPage: React.FC = () => {
       <div className="bg-white shadow rounded-lg">
         {/* Environment Info */}
         {!isTauri && (
-          <div className="px-6 py-4 border-b border-yellow-200 bg-yellow-50">
+          <div className="px-6 py-4 border-b border-blue-200 bg-blue-50">
             <div className="flex items-start">
-              <AlertCircle className="w-5 h-5 text-yellow-600 mt-0.5 mr-3 flex-shrink-0" />
+              <Wifi className="w-5 h-5 text-blue-600 mt-0.5 mr-3 flex-shrink-0" />
               <div>
-                <h3 className="text-sm font-medium text-yellow-900">Docker / 浏览器模式限制</h3>
-                <p className="mt-1 text-sm text-yellow-800">
-                  自动摄像头扫描功能需要运行桌面应用。在 Docker 环境中，请手动添加摄像头或下载桌面版使用完整功能。
+                <h3 className="text-sm font-medium text-blue-800">Docker / Web 模式</h3>
+                <p className="mt-1 text-sm text-blue-700">
+                  您正在使用 Docker/Web 模式。内网摄像头扫描功能已启用，可以正常扫描局域网内的 RTSP 摄像头。
                 </p>
-                <div className="mt-2">
-                  <button
-                    onClick={() => navigate('/cameras')}
-                    className="text-sm text-yellow-900 underline hover:text-yellow-700"
-                  >
-                    点击此处手动添加摄像头 →
-                  </button>
-                </div>
               </div>
             </div>
           </div>
@@ -277,7 +269,7 @@ const CameraDiscoveryPage: React.FC = () => {
             </div>
             <button
               onClick={handleQuickScan}
-              disabled={isScanning || !isTauri}
+              disabled={isScanning}
               className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isScanning ? (
@@ -333,7 +325,7 @@ const CameraDiscoveryPage: React.FC = () => {
           <div className="mt-4">
             <button
               onClick={handleCustomScan}
-              disabled={isScanning || !isTauri}
+              disabled={isScanning}
               className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Play className="w-4 h-4 mr-2" />

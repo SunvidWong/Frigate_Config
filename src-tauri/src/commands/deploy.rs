@@ -388,14 +388,12 @@ pub struct DeploymentHistoryItem {
 
 // ========== Hardware Device Commands ==========
 
-/// Add hardware device to deployment configuration
-#[tauri::command]
-pub async fn add_hardware_device_to_config(
+/// Internal function to add hardware device (no State required)
+pub async fn add_device_internal(
     device_path: String,
     device_type: String,
     device_name: String,
-    _state: State<'_, Arc<Mutex<AppState>>>,
-) -> Result<AddHardwareDeviceResponse, AppError> {
+) -> Result<(), AppError> {
     info!("Adding hardware device to config: {} ({})", device_name, device_path);
 
     // Validate device path
@@ -449,6 +447,20 @@ pub async fn add_hardware_device_to_config(
     } else {
         info!("Device already exists in config: {}", device_path);
     }
+
+    Ok(())
+}
+
+/// Add hardware device to deployment configuration
+#[tauri::command]
+pub async fn add_hardware_device_to_config(
+    device_path: String,
+    device_type: String,
+    device_name: String,
+    _state: State<'_, Arc<Mutex<AppState>>>,
+) -> Result<AddHardwareDeviceResponse, AppError> {
+    // Call internal implementation
+    add_device_internal(device_path.clone(), device_type.clone(), device_name.clone()).await?;
 
     Ok(AddHardwareDeviceResponse {
         success: true,
