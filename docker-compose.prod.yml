@@ -1,29 +1,7 @@
-# Docker Compose - 使用预构建镜像部署
-# 直接从 GitHub Container Registry 拉取镜像，无需本地构建
-
 services:
   frigate-config-web:
-    # 使用预构建的镜像（从 GitHub Container Registry 拉取）
     image: ghcr.io/sunvidwong/frigate_config:latest
     container_name: frigate-config-web
     ports:
-      - "8080:80"
+      - 8080:80
     restart: unless-stopped
-    environment:
-      - NODE_ENV=production
-    healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
-      interval: 30s
-      timeout: 3s
-      retries: 3
-      start_period: 5s
-    labels:
-      - "com.frigate.config.app=web"
-      - "com.frigate.config.version=1.0"
-    networks:
-      - frigate-network
-
-networks:
-  frigate-network:
-    name: frigate-config-network
-    driver: bridge
