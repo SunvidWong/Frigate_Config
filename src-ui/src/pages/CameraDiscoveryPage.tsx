@@ -134,12 +134,23 @@ const CameraDiscoveryPage: React.FC = () => {
     setCameras([]);
 
     try {
+      // Ensure we have the network range before scanning
+      if (!networkRange) {
+        await loadNetworkRange();
+      }
+
       // Simulate progress
       const progressInterval = setInterval(() => {
         setScanProgress(prev => Math.min(prev + 10, 90));
       }, 500);
 
-      const discovered = await safeInvoke<DiscoveredCamera[]>('quick_scan_cameras');
+      // Use detected network range for quick scan
+      const ports = [554, 80, 8000, 8080, 8554, 8888];
+      const discovered = await safeInvoke<DiscoveredCamera[]>('scan_for_cameras', {
+        networkRange: networkRange || '192.168.1.0/24',
+        ports,
+        timeoutMs: 1000,
+      });
 
       clearInterval(progressInterval);
       setScanProgress(100);

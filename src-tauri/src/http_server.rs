@@ -129,6 +129,15 @@ async fn get_hardware_devices(
     Ok(Json(ApiResponse::ok(devices)))
 }
 
+/// Scan PCI devices
+async fn scan_pci_devices(
+) -> Result<Json<ApiResponse<deploy::PciDeviceList>>, AppError> {
+    info!("HTTP API: Scan PCI devices");
+    let state = std::sync::Arc::new(tokio::sync::Mutex::new(crate::state::AppState::new()?));
+    let pci_devices = deploy::scan_pci_devices(tauri::State::from(&state)).await?;
+    Ok(Json(ApiResponse::ok(pci_devices)))
+}
+
 /// Create and configure the HTTP server
 pub async fn run_http_server(port: u16) -> Result<(), Box<dyn std::error::Error>> {
     info!("Starting HTTP server on port {}", port);
@@ -147,6 +156,7 @@ pub async fn run_http_server(port: u16) -> Result<(), Box<dyn std::error::Error>
         .route("/guess_network_range_command", post(get_network_range))
         .route("/add_hardware_device_to_config", post(add_hardware_device))
         .route("/get_saved_hardware_devices", post(get_hardware_devices))
+        .route("/scan_pci_devices", post(scan_pci_devices))
         .layer(cors.clone());
 
     // Serve static files from /app/web

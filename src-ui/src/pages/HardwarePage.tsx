@@ -9,6 +9,22 @@ import Card from '../components/Card'
 import Modal from '../components/Modal'
 import type { HardwareDevice, DeviceType, HardwareAvailability } from '../types'
 
+// PCI Device types
+interface PciDeviceInfo {
+  slot: string
+  class: string
+  vendor: string
+  device: string
+  subsystem: string | null
+  revision: string | null
+  device_path: string
+  is_gpu: boolean
+  is_nvidia: boolean
+  is_amd: boolean
+  is_intel: boolean
+  recommended_device_path: string | null
+}
+
 // Preset hardware configurations for common devices
 interface PresetHardware {
   id: string
@@ -19,8 +35,10 @@ interface PresetHardware {
 }
 
 const PRESET_HARDWARE: PresetHardware[] = [
-  // NVIDIA GPUs
-  { id: 'nvidia-gpu', name: 'NVIDIA GPU', devicePath: '/dev/dri/renderD128', type: 'gpu', description: 'NVIDIA 显卡 (通过 docker --gpus 参数)' },
+  // NVIDIA GPUs - Following Frigate official documentation
+  { id: 'nvidia-gpu-0', name: 'NVIDIA GPU (主设备)', devicePath: '/dev/nvidia0', type: 'gpu', description: 'NVIDIA 显卡主设备' },
+  { id: 'nvidia-ctl', name: 'NVIDIA 控制设备', devicePath: '/dev/nvidiactl', type: 'gpu', description: 'NVIDIA 控制设备文件' },
+  { id: 'nvidia-uvm', name: 'NVIDIA UVM', devicePath: '/dev/nvidia-uvm', type: 'gpu', description: 'NVIDIA 统一虚拟内存' },
 
   // Intel GPUs
   { id: 'intel-qsv', name: 'Intel Quick Sync Video', devicePath: '/dev/dri/renderD128', type: 'gpu', description: 'Intel 核显硬件加速' },
@@ -61,6 +79,9 @@ const HardwarePage: React.FC = () => {
   const [showPresetSelector, setShowPresetSelector] = useState(false)
   const [selectedPreset, setSelectedPreset] = useState<string>('')
   const [presetFilter, setPresetFilter] = useState<DeviceType | 'all'>('all')
+  const [scanningPci, setScanningPci] = useState(false)
+  const [pciDevices, setPciDevices] = useState<PciDeviceInfo[]>([])
+  const [showPciDevices, setShowPciDevices] = useState(false)
 
   const {
     data: detectionData,
@@ -198,6 +219,52 @@ const HardwarePage: React.FC = () => {
     return PRESET_HARDWARE.filter(p => p.type === presetFilter)
   }
 
+  const handleScanPciDevices = async () => {
+    setScanningPci(true)
+    try {
+      const result = await safeInvoke<{ devices: PciDeviceInfo[], total_count: number }>('scan_pci_devices')
+      setPciDevices(result.devices.filter(d => d.is_gpu)) // Only show GPUs
+      setShowPciDevices(true)
+    } catch (err) {
+      alert(`PCI 设备扫描失败: ${err}`)
+    } finally {
+      setScanningPci(false)
+    }
+  }
+
+  const handleAddPciDevice = async (pciDevice: PciDeviceInfo) => {
+    if (!pciDevice.recommended_device_path) {
+      alert('无法确定此设备的推荐路径')
+      return
+    }
+
+    const devicePaths = pciDevice.recommended_device_path.split(', ')
+    const devicePath = devicePaths[0] // Use first recommended path
+
+    setAddingDevice(pciDevice.slot)
+    setAddSuccess(null)
+
+    try {
+      let deviceName = pciDevice.vendor
+      if (pciDevice.is_nvidia) deviceName = 'NVIDIA GPU'
+      else if (pciDevice.is_amd) deviceName = 'AMD GPU'
+      else if (pciDevice.is_intel) deviceName = 'Intel GPU'
+
+      await safeInvoke('add_hardware_device_to_config', {
+        devicePath,
+        deviceType: 'gpu',
+        deviceName
+      })
+
+      setAddSuccess(`已添加 ${deviceName} 到配置`)
+      setTimeout(() => setAddSuccess(null), 3000)
+    } catch (err) {
+      alert(`添加失败: ${err}`)
+    } finally {
+      setAddingDevice(null)
+    }
+  }
+
   const getDeviceIcon = (type: DeviceType): string => {
     const icons: Record<DeviceType, string> = {
       gpu: '🎮',
@@ -239,15 +306,81 @@ const HardwarePage: React.FC = () => {
                 请选择您的硬件设备,系统将自动添加相关参数到 docker-compose.yml 文件中。
               </p>
 
-              <Button
-                size="sm"
-                onClick={() => setShowPresetSelector(!showPresetSelector)}
-                icon={showPresetSelector ? '−' : '+'}
-                variant="outline"
-                className="mb-3"
-              >
-                {showPresetSelector ? '关闭选择器' : '添加硬件设备'}
-              </Button>
+              <div className="flex space-x-2 mb-3">
+                <Button
+                  size="sm"
+                  onClick={() => setShowPresetSelector(!showPresetSelector)}
+                  icon={showPresetSelector ? '−' : '+'}
+                  variant="outline"
+                >
+                  {showPresetSelector ? '关闭选择器' : '添加硬件设备'}
+                </Button>
+
+                <Button
+                  size="sm"
+                  onClick={handleScanPciDevices}
+                  icon="🔍"
+                  variant="outline"
+                  loading={scanningPci}
+                >
+                  {scanningPci ? '扫描中...' : '扫描 PCI 设备'}
+                </Button>
+              </div>
+
+              {/* PCI Device Scanner Results */}
+              {showPciDevices && pciDevices.length > 0 && (
+                <div className="mt-4 p-5 bg-white rounded-lg border border-green-200 shadow-sm">
+                  <div className="flex justify-between items-center mb-4">
+                    <h4 className="font-semibold text-gray-900">检测到的 GPU 设备 ({pciDevices.length})</h4>
+                    <button
+                      onClick={() => setShowPciDevices(false)}
+                      className="text-gray-500 hover:text-gray-700"
+                    >
+                      ✕
+                    </button>
+                  </div>
+
+                  <div className="space-y-3">
+                    {pciDevices.map((pci) => (
+                      <div
+                        key={pci.slot}
+                        className="p-4 border border-gray-200 rounded-lg hover:border-green-400 transition-colors"
+                      >
+                        <div className="flex justify-between items-start">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-2">
+                              <span className="text-xl">
+                                {pci.is_nvidia ? '🟢' : pci.is_amd ? '🔴' : '🔵'}
+                              </span>
+                              <h5 className="font-semibold text-gray-900">{pci.vendor}</h5>
+                              {pci.is_nvidia && <span className="px-2 py-0.5 bg-green-100 text-green-800 text-xs rounded">NVIDIA</span>}
+                              {pci.is_amd && <span className="px-2 py-0.5 bg-red-100 text-red-800 text-xs rounded">AMD</span>}
+                              {pci.is_intel && <span className="px-2 py-0.5 bg-blue-100 text-blue-800 text-xs rounded">Intel</span>}
+                            </div>
+                            <p className="text-sm text-gray-600 mb-1">{pci.device}</p>
+                            <p className="text-xs text-gray-500 font-mono">PCI 插槽: {pci.slot}</p>
+                            {pci.recommended_device_path && (
+                              <div className="mt-2 p-2 bg-gray-50 rounded">
+                                <p className="text-xs text-gray-600 mb-1">推荐设备路径:</p>
+                                <code className="text-xs text-blue-600">{pci.recommended_device_path}</code>
+                              </div>
+                            )}
+                          </div>
+                          <Button
+                            size="sm"
+                            onClick={() => handleAddPciDevice(pci)}
+                            loading={addingDevice === pci.slot}
+                            icon="+"
+                            className="ml-3"
+                          >
+                            {addingDevice === pci.slot ? '添加中...' : '添加'}
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {showPresetSelector && (
                 <div className="mt-4 p-5 bg-white rounded-lg border border-blue-200 shadow-sm">

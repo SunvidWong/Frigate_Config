@@ -100,6 +100,7 @@ fn run_tauri_mode() {
             commands::deploy::get_saved_hardware_devices,
             commands::deploy::remove_hardware_device,
             commands::deploy::validate_hardware_devices,
+            commands::deploy::scan_pci_devices,
 
             // Disk commands (Phase 8 - T175, T180)
             commands::disk::get_disk_info_command,

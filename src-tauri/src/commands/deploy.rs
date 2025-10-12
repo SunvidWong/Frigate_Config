@@ -474,18 +474,27 @@ pub async fn add_hardware_device_to_config(
 async fn update_docker_compose_devices() -> Result<(), AppError> {
     use std::path::Path;
 
-    // Find docker-compose.yml in project root
+    // Find Frigate deployment docker-compose.yml
+    // Look for user's Frigate compose file in common locations
+    let config_dir = dirs::config_dir()
+        .ok_or_else(|| AppError::Deployment("Failed to get config directory".to_string()))?
+        .join("frigate-config-tool");
+
+    let frigate_compose_path = config_dir.join("frigate-docker-compose.yml");
+
+    // If custom path not found, use default in home directory
     let possible_paths = vec![
-        "docker-compose.yml",
-        "../docker-compose.yml",
-        "../../docker-compose.yml",
+        frigate_compose_path.to_string_lossy().to_string(),
+        format!("{}/frigate/docker-compose.yml", std::env::var("HOME").unwrap_or_default()),
+        "/opt/frigate/docker-compose.yml".to_string(),
+        "docker-compose.frigate.yml".to_string(),
     ];
 
     let compose_path = possible_paths.iter()
         .find(|p| Path::new(p).exists())
-        .ok_or_else(|| AppError::Deployment("docker-compose.yml not found".to_string()))?;
+        .ok_or_else(|| AppError::Deployment("Frigate docker-compose.yml not found. Please ensure Frigate is installed.".to_string()))?;
 
-    info!("Found docker-compose.yml at: {}", compose_path);
+    info!("Found Frigate docker-compose.yml at: {}", compose_path);
 
     // Load hardware devices
     let devices = load_hardware_devices().await?;
@@ -503,20 +512,109 @@ async fn update_docker_compose_devices() -> Result<(), AppError> {
     let mut yaml: serde_yaml::Value = serde_yaml::from_str(&content)
         .map_err(|e| AppError::Deployment(format!("Failed to parse docker-compose.yml: {}", e)))?;
 
-    // Navigate to services.frigate-config-tool
+    // Navigate to services.frigate (not frigate-config-tool!)
     if let Some(services) = yaml.get_mut("services") {
-        if let Some(service) = services.get_mut("frigate-config-tool") {
-            // Create or update devices array
-            let device_mappings: Vec<serde_yaml::Value> = devices.iter()
-                .map(|d| serde_yaml::Value::String(format!("{}:{}", d.device_path, d.device_path)))
-                .collect();
+        if let Some(service) = services.get_mut("frigate") {
+            let service_map = service.as_mapping_mut()
+                .ok_or_else(|| AppError::Deployment("Invalid service structure".to_string()))?;
 
-            service.as_mapping_mut()
-                .ok_or_else(|| AppError::Deployment("Invalid service structure".to_string()))?
-                .insert(
+            // Categorize devices by type
+            let mut standard_device_mappings = Vec::new();
+            let mut has_nvidia_gpu = false;
+
+            for device in &devices {
+                match device.device_type.as_str() {
+                    "gpu" if device.device_name.contains("NVIDIA") => {
+                        has_nvidia_gpu = true;
+                        // For NVIDIA GPUs, use the official Frigate recommended format
+                        // Add device paths like /dev/nvidia0:/dev/nvidia0
+                        if device.device_path.starts_with("/dev/nvidia") {
+                            standard_device_mappings.push(serde_yaml::Value::String(
+                                format!("{}:{}", device.device_path, device.device_path)
+                            ));
+                        }
+                        // Also add common NVIDIA device files
+                        for nvidia_device in &[
+                            "/dev/nvidia0",
+                            "/dev/nvidiactl",
+                            "/dev/nvidia-modeset",
+                            "/dev/nvidia-uvm",
+                            "/dev/nvidia-uvm-tools",
+                        ] {
+                            let device_str = format!("{}:{}", nvidia_device, nvidia_device);
+                            if !standard_device_mappings.iter().any(|v| {
+                                if let serde_yaml::Value::String(s) = v {
+                                    s == &device_str
+                                } else {
+                                    false
+                                }
+                            }) {
+                                standard_device_mappings.push(serde_yaml::Value::String(device_str));
+                            }
+                        }
+                    },
+                    _ => {
+                        // Other devices use standard device mapping
+                        standard_device_mappings.push(serde_yaml::Value::String(
+                            format!("{}:{}", device.device_path, device.device_path)
+                        ));
+                    }
+                }
+            }
+
+            // Add standard devices mapping (Frigate official format)
+            if !standard_device_mappings.is_empty() {
+                service_map.insert(
                     serde_yaml::Value::String("devices".to_string()),
-                    serde_yaml::Value::Sequence(device_mappings),
+                    serde_yaml::Value::Sequence(standard_device_mappings),
                 );
+            }
+
+            // For NVIDIA, also consider adding deploy.resources.reservations format
+            // This is the Docker Compose v2.3+ format recommended by Frigate
+            if has_nvidia_gpu {
+                // Create deploy.resources.reservations structure
+                let mut deploy_map = serde_yaml::Mapping::new();
+                let mut resources_map = serde_yaml::Mapping::new();
+                let mut reservations_map = serde_yaml::Mapping::new();
+
+                // Create devices array for GPU reservation
+                let mut gpu_devices = Vec::new();
+                let mut gpu_device_map = serde_yaml::Mapping::new();
+                gpu_device_map.insert(
+                    serde_yaml::Value::String("driver".to_string()),
+                    serde_yaml::Value::String("nvidia".to_string()),
+                );
+                gpu_device_map.insert(
+                    serde_yaml::Value::String("count".to_string()),
+                    serde_yaml::Value::Number(1.into()),
+                );
+                gpu_device_map.insert(
+                    serde_yaml::Value::String("capabilities".to_string()),
+                    serde_yaml::Value::Sequence(vec![serde_yaml::Value::String("gpu".to_string())]),
+                );
+                gpu_devices.push(serde_yaml::Value::Mapping(gpu_device_map));
+
+                reservations_map.insert(
+                    serde_yaml::Value::String("devices".to_string()),
+                    serde_yaml::Value::Sequence(gpu_devices),
+                );
+                resources_map.insert(
+                    serde_yaml::Value::String("reservations".to_string()),
+                    serde_yaml::Value::Mapping(reservations_map),
+                );
+                deploy_map.insert(
+                    serde_yaml::Value::String("resources".to_string()),
+                    serde_yaml::Value::Mapping(resources_map),
+                );
+
+                service_map.insert(
+                    serde_yaml::Value::String("deploy".to_string()),
+                    serde_yaml::Value::Mapping(deploy_map),
+                );
+
+                info!("Added NVIDIA GPU configuration with both devices mapping and deploy.resources.reservations");
+            }
 
             // Write back to file
             let updated_content = serde_yaml::to_string(&yaml)
@@ -525,7 +623,9 @@ async fn update_docker_compose_devices() -> Result<(), AppError> {
             tokio::fs::write(compose_path, updated_content).await
                 .map_err(|e| AppError::Deployment(format!("Failed to write docker-compose.yml: {}", e)))?;
 
-            info!("Updated docker-compose.yml with {} devices", devices.len());
+            info!("Updated Frigate docker-compose.yml with {} devices", devices.len());
+        } else {
+            return Err(AppError::Deployment("No 'frigate' service found in docker-compose.yml".to_string()));
         }
     }
 
@@ -699,4 +799,209 @@ pub struct DeviceValidationResponse {
     pub valid_devices: Vec<DeviceValidationResult>,
     pub invalid_devices: Vec<DeviceValidationResult>,
     pub warnings: Vec<String>,
+}
+
+// ========== PCI Device Scanning ==========
+
+/// Scan for PCI devices using lspci command
+#[tauri::command]
+pub async fn scan_pci_devices(
+    _state: State<'_, Arc<Mutex<AppState>>>,
+) -> Result<PciDeviceList, AppError> {
+    info!("Scanning PCI devices");
+
+    let pci_devices = scan_host_pci_devices().await?;
+
+    Ok(PciDeviceList {
+        devices: pci_devices,
+        total_count: pci_devices.len(),
+    })
+}
+
+/// Internal function to scan PCI devices
+async fn scan_host_pci_devices() -> Result<Vec<PciDeviceInfo>, AppError> {
+    use tokio::process::Command;
+
+    // Run lspci command to list all PCI devices
+    let output = Command::new("lspci")
+        .arg("-vmm")  // Machine-readable format
+        .arg("-nn")   // Show numeric IDs
+        .output()
+        .await
+        .map_err(|e| AppError::Deployment(format!("Failed to run lspci: {}. Please ensure lspci is installed.", e)))?;
+
+    if !output.status.success() {
+        return Err(AppError::Deployment(format!("lspci command failed: {}", String::from_utf8_lossy(&output.stderr))));
+    }
+
+    let output_str = String::from_utf8_lossy(&output.stdout);
+    let devices = parse_lspci_output(&output_str)?;
+
+    Ok(devices)
+}
+
+/// Parse lspci -vmm output
+fn parse_lspci_output(output: &str) -> Result<Vec<PciDeviceInfo>, AppError> {
+    let mut devices = Vec::new();
+    let mut current_device: Option<PciDeviceInfo> = None;
+
+    for line in output.lines() {
+        if line.is_empty() {
+            // End of device entry
+            if let Some(device) = current_device.take() {
+                devices.push(device);
+            }
+            continue;
+        }
+
+        // Parse key: value format
+        if let Some((key, value)) = line.split_once(':') {
+            let key = key.trim();
+            let value = value.trim().to_string();
+
+            match key {
+                "Slot" => {
+                    // Start new device
+                    current_device = Some(PciDeviceInfo {
+                        slot: value.clone(),
+                        class: String::new(),
+                        vendor: String::new(),
+                        device: String::new(),
+                        subsystem: None,
+                        revision: None,
+                        device_path: format!("/sys/bus/pci/devices/{}", value),
+                        is_gpu: false,
+                        is_nvidia: false,
+                        is_amd: false,
+                        is_intel: false,
+                        recommended_device_path: None,
+                    });
+                },
+                "Class" => {
+                    if let Some(ref mut dev) = current_device {
+                        dev.class = value;
+                        // Check if it's a GPU (VGA or 3D controller)
+                        dev.is_gpu = value.contains("VGA") || value.contains("3D controller") || value.contains("Display");
+                    }
+                },
+                "Vendor" => {
+                    if let Some(ref mut dev) = current_device {
+                        dev.vendor = value.clone();
+                        dev.is_nvidia = value.to_lowercase().contains("nvidia");
+                        dev.is_amd = value.to_lowercase().contains("amd") || value.to_lowercase().contains("advanced micro");
+                        dev.is_intel = value.to_lowercase().contains("intel");
+                    }
+                },
+                "Device" => {
+                    if let Some(ref mut dev) = current_device {
+                        dev.device = value;
+                    }
+                },
+                "SVendor" | "SDevice" => {
+                    if let Some(ref mut dev) = current_device {
+                        dev.subsystem = Some(value);
+                    }
+                },
+                "Rev" => {
+                    if let Some(ref mut dev) = current_device {
+                        dev.revision = Some(value);
+                    }
+                },
+                _ => {}
+            }
+        }
+    }
+
+    // Don't forget the last device
+    if let Some(device) = current_device {
+        devices.push(device);
+    }
+
+    // Add recommended device paths for GPUs
+    for device in &mut devices {
+        if device.is_gpu {
+            device.recommended_device_path = determine_recommended_device_path(device);
+        }
+    }
+
+    Ok(devices)
+}
+
+/// Determine the recommended device path based on vendor
+fn determine_recommended_device_path(device: &PciDeviceInfo) -> Option<String> {
+    if device.is_nvidia {
+        // NVIDIA devices - Frigate official format
+        // Check which NVIDIA device files exist
+        let mut nvidia_devices = Vec::new();
+
+        // Primary NVIDIA devices (following Frigate documentation)
+        for nvidia_dev in &[
+            "/dev/nvidia0",
+            "/dev/nvidiactl",
+            "/dev/nvidia-modeset",
+            "/dev/nvidia-uvm",
+            "/dev/nvidia-uvm-tools",
+        ] {
+            if std::path::Path::new(nvidia_dev).exists() {
+                nvidia_devices.push(nvidia_dev.to_string());
+            }
+        }
+
+        // Check for additional nvidia device numbers
+        for i in 0..8 {
+            let dev = format!("/dev/nvidia{}", i);
+            if std::path::Path::new(&dev).exists() && !nvidia_devices.contains(&dev) {
+                nvidia_devices.push(dev);
+            }
+        }
+
+        if !nvidia_devices.is_empty() {
+            Some(nvidia_devices.join(", "))
+        } else {
+            // Fallback recommendation based on Frigate docs
+            Some("/dev/nvidia0, /dev/nvidiactl, /dev/nvidia-modeset, /dev/nvidia-uvm, /dev/nvidia-uvm-tools".to_string())
+        }
+    } else if device.is_amd || device.is_intel {
+        // AMD and Intel use DRI render nodes
+        let mut dri_devices = Vec::new();
+
+        if let Ok(entries) = std::fs::read_dir("/dev/dri") {
+            for entry in entries.filter_map(|e| e.ok()) {
+                let name = entry.file_name().to_string_lossy().to_string();
+                if name.starts_with("renderD") || name.starts_with("card") {
+                    dri_devices.push(format!("/dev/dri/{}", name));
+                }
+            }
+        }
+
+        if !dri_devices.is_empty() {
+            Some(dri_devices.join(", "))
+        } else {
+            Some("/dev/dri/renderD128, /dev/dri/card0".to_string())
+        }
+    } else {
+        None
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct PciDeviceList {
+    pub devices: Vec<PciDeviceInfo>,
+    pub total_count: usize,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct PciDeviceInfo {
+    pub slot: String,
+    pub class: String,
+    pub vendor: String,
+    pub device: String,
+    pub subsystem: Option<String>,
+    pub revision: Option<String>,
+    pub device_path: String,
+    pub is_gpu: bool,
+    pub is_nvidia: bool,
+    pub is_amd: bool,
+    pub is_intel: bool,
+    pub recommended_device_path: Option<String>,
 }
