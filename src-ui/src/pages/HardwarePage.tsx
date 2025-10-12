@@ -233,13 +233,15 @@ const HardwarePage: React.FC = () => {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
         })
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`)
-        }
+
+        // Parse JSON response regardless of status code
         const apiResponse = await response.json()
+
+        // Check if the API returned an error
         if (!apiResponse.success) {
-          throw new Error(apiResponse.error || 'Unknown error')
+          throw new Error(apiResponse.error || `HTTP ${response.status}: ${response.statusText}`)
         }
+
         result = apiResponse.data
       }
 
