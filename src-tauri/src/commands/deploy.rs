@@ -811,10 +811,11 @@ pub async fn scan_pci_devices(
     info!("Scanning PCI devices");
 
     let pci_devices = scan_host_pci_devices().await?;
+    let total_count = pci_devices.len();
 
     Ok(PciDeviceList {
         devices: pci_devices,
-        total_count: pci_devices.len(),
+        total_count,
     })
 }
 
@@ -879,17 +880,17 @@ fn parse_lspci_output(output: &str) -> Result<Vec<PciDeviceInfo>, AppError> {
                 },
                 "Class" => {
                     if let Some(ref mut dev) = current_device {
-                        dev.class = value;
                         // Check if it's a GPU (VGA or 3D controller)
                         dev.is_gpu = value.contains("VGA") || value.contains("3D controller") || value.contains("Display");
+                        dev.class = value;
                     }
                 },
                 "Vendor" => {
                     if let Some(ref mut dev) = current_device {
-                        dev.vendor = value.clone();
                         dev.is_nvidia = value.to_lowercase().contains("nvidia");
                         dev.is_amd = value.to_lowercase().contains("amd") || value.to_lowercase().contains("advanced micro");
                         dev.is_intel = value.to_lowercase().contains("intel");
+                        dev.vendor = value;
                     }
                 },
                 "Device" => {
