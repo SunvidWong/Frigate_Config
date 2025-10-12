@@ -222,7 +222,27 @@ const HardwarePage: React.FC = () => {
   const handleScanPciDevices = async () => {
     setScanningPci(true)
     try {
-      const result = await safeInvoke<{ devices: PciDeviceInfo[], total_count: number }>('scan_pci_devices')
+      let result: { devices: PciDeviceInfo[], total_count: number }
+
+      if (isInTauriEnv) {
+        // Tauri desktop mode
+        result = await safeInvoke<{ devices: PciDeviceInfo[], total_count: number }>('scan_pci_devices')
+      } else {
+        // HTTP mode (Docker/Browser)
+        const response = await fetch('/api/scan_pci_devices', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+        })
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+        }
+        const apiResponse = await response.json()
+        if (!apiResponse.success) {
+          throw new Error(apiResponse.error || 'Unknown error')
+        }
+        result = apiResponse.data
+      }
+
       setPciDevices(result.devices.filter(d => d.is_gpu)) // Only show GPUs
       setShowPciDevices(true)
     } catch (err) {
