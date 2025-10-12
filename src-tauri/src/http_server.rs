@@ -164,8 +164,14 @@ pub async fn run_http_server(port: u16) -> Result<(), Box<dyn std::error::Error>
         .route("/scan_pci_devices", post(scan_pci_devices))
         .layer(cors.clone());
 
-    // Serve static files from /app/web
-    let static_files = ServeDir::new("/app/web").append_index_html_on_directories(true);
+    // Serve static files - use /app/web in Docker, or src-ui/dist locally
+    let web_dir = if std::path::Path::new("/app/web").exists() {
+        "/app/web"
+    } else {
+        "src-ui/dist"
+    };
+    info!("Serving static files from: {}", web_dir);
+    let static_files = ServeDir::new(web_dir).append_index_html_on_directories(true);
 
     // Combine routes
     let app = Router::new()
