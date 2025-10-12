@@ -133,9 +133,14 @@ async fn get_hardware_devices(
 async fn scan_pci_devices(
 ) -> Result<Json<ApiResponse<deploy::PciDeviceList>>, AppError> {
     info!("HTTP API: Scan PCI devices");
-    let state = std::sync::Arc::new(tokio::sync::Mutex::new(crate::state::AppState::new()?));
-    let pci_devices = deploy::scan_pci_devices(tauri::State::from(&state)).await?;
-    Ok(Json(ApiResponse::ok(pci_devices)))
+    // Call the internal scan function directly instead of going through Tauri command
+    let pci_devices = deploy::scan_host_pci_devices().await?;
+    let total_count = pci_devices.len();
+
+    Ok(Json(ApiResponse::ok(deploy::PciDeviceList {
+        devices: pci_devices,
+        total_count,
+    })))
 }
 
 /// Create and configure the HTTP server

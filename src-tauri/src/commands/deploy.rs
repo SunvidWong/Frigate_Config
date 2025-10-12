@@ -820,7 +820,7 @@ pub async fn scan_pci_devices(
 }
 
 /// Internal function to scan PCI devices
-async fn scan_host_pci_devices() -> Result<Vec<PciDeviceInfo>, AppError> {
+pub async fn scan_host_pci_devices() -> Result<Vec<PciDeviceInfo>, AppError> {
     use tokio::process::Command;
 
     // Run lspci command to list all PCI devices
