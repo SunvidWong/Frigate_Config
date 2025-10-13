@@ -2,35 +2,6 @@
 
 A cross-platform visual configuration tool for [Frigate NVR](https://frigate.video/) that eliminates the YAML configuration barrier through an iOS-style desktop application.
 
-## ⚠️ Development Status
-
-**Current Phase: Phase 9 (Polish) - 92% COMPLETE ✅**
-
-This project has completed 8 of 9 phases following a structured implementation plan.
-
-### ✅ Completed Phases
-
-- ✅ **Phase 1**: Project Setup
-- ✅ **Phase 2**: Foundational Infrastructure
-- ✅ **Phase 3**: User Story 1 - Hardware Detection & Camera Setup (MVP)
-- ✅ **Phase 4**: User Story 2 - Configuration Management
-- ✅ **Phase 5**: User Story 3 - Deployment with Validation
-- ✅ **Phase 6**: User Story 4 - Cross-Platform Detection
-- ✅ **Phase 7**: User Story 5 - Manual Configuration
-- ✅ **Phase 8**: User Story 6 - Disk & Volume Mapping
-
-### 🔄 Current Phase
-
-- **Phase 9**: Polish & Release (190/205 tasks complete)
-  - ✅ Test coverage >80%
-  - ✅ Architecture documentation
-  - ✅ README creation
-  - ⏳ API documentation
-  - ⏳ User guide
-  - ⏳ Performance optimization
-  - ⏳ Security audit
-  - ⏳ Release packaging
-
 ## 🎯 Project Goals
 
 Enable users to:
@@ -40,25 +11,6 @@ Enable users to:
 4. **Deploy to Docker** with pre-validation and health checks
 5. **Edit YAML manually** for power users while preserving comments
 6. **Map storage volumes** for recordings and clips
-
-## 🏗️ Architecture
-
-This is a modular monorepo containing:
-
-- **`src-tauri/`** - Rust backend (Configuration Engine, Deployment Module)
-- **`agent/`** - Go agent for hardware detection (cross-platform single binary)
-- **`src-ui/`** - React/TypeScript frontend
-- **`tests/`** - Contract, integration, and E2E tests
-- **`specs/`** - Feature specifications and design documents
-
-### Technology Stack
-
-- **UI**: Tauri 1.5+ with React 18 and TypeScript
-- **Backend**: Rust 1.75+
-- **Agent**: Go 1.21+
-- **Styling**: Tailwind CSS
-- **Database**: SQLite (for backup metadata)
-- **Deployment**: Docker CLI
 
 ## 📋 Prerequisites
 
@@ -181,28 +133,6 @@ Output will be in `src-tauri/target/release/bundle/`
 - **[Architecture](docs/architecture.md)** - System architecture and design
 - **[Specification](specs/001-2-1-ui/spec.md)** - Feature requirements
 - **[Implementation Plan](specs/001-2-1-ui/plan.md)** - Technical decisions
-- **[Tasks Breakdown](specs/001-2-1-ui/tasks.md)** - Implementation tasks (190/205 complete)
-
-## 🧪 Testing
-
-This project follows Test-First Development (TDD) with >80% test coverage.
-
-```bash
-# Rust tests (101 unit tests + 24 integration tests)
-cargo test
-
-# Go agent tests
-cd agent && go test ./...
-
-# E2E tests (Playwright)
-npm run test:e2e
-```
-
-**Test Statistics**:
-- 101 unit tests ✅
-- 24 integration test files ✅
-- E2E test coverage for all user flows ✅
-- Test coverage: >80% (core modules) ✅
 
 ## 🤝 Contributing
 
@@ -232,21 +162,3 @@ Apache License 2.0 - see [LICENSE](LICENSE) for details.
 
 - **Issues**: https://github.com/frigate-config-tool/frigate-config-tool/issues
 - **Discussions**: https://github.com/frigate-config-tool/frigate-config-tool/discussions
-
----
-
-## 📦 Installation
-
-### Download Pre-built Binaries (Coming Soon)
-
-Binaries for Linux, Windows, and macOS will be available in the releases section.
-
-### Usage
-
-1. **Hardware Detection**: Detect GPUs, TPUs, and accelerators
-2. **Camera Setup**: Configure cameras with visual interface
-3. **Disk Mapping**: Configure storage volumes
-4. **Deploy**: One-click Docker deployment with health checks
-5. **Manage**: Edit YAML, create backups, rollback changes
-
----
