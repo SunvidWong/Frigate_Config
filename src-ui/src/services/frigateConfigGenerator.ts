@@ -220,26 +220,27 @@ export class FrigateConfigGenerator {
 
   /**
    * Get hardware acceleration args for ffmpeg based on hwaccel type
+   * Following official Frigate documentation: https://docs.frigate.video/configuration/ffmpeg_presets/
    */
   private static getHwaccelArgsForType(hwaccelType: string): string {
     switch (hwaccelType) {
       case 'cuda':
-        // NVIDIA CUDA
-        return 'preset-nvidia-h264';
+        // NVIDIA CUDA - Official preset supports both H.264 and H.265
+        return 'preset-nvidia';
       case 'qsv':
-        // Intel Quick Sync Video
+        // Intel Quick Sync Video - H.264
         return 'preset-intel-qsv-h264';
       case 'vaapi':
         // Video Acceleration API (Intel/AMD)
         return 'preset-vaapi';
       case 'videotoolbox':
-        // Apple VideoToolbox (macOS)
-        return 'preset-videotoolbox-h264';
+        // Apple VideoToolbox (macOS) - Not in official presets, remove
+        return '';
       case 'rkmpp':
         // Rockchip Media Process Platform
-        return 'preset-rkmpp-h264';
+        return 'preset-rkmpp';
       case 'jetson':
-        // NVIDIA Jetson
+        // NVIDIA Jetson - H.264
         return 'preset-jetson-h264';
       default:
         return '';
