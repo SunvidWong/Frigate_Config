@@ -250,7 +250,3 @@ Binaries for Linux, Windows, and macOS will be available in the releases section
 5. **Manage**: Edit YAML, create backups, rollback changes
 
 ---
-
-**Status**: 92% complete (190/205 tasks). Phase 9 (polish & release) in progress.
-
-🤖 Generated with [Claude Code](https://claude.com/claude-code)
