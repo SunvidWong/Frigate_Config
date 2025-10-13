@@ -87,40 +87,6 @@ docker compose down
 docker stop frigate-config-tool
 ```
 
----
-
-### 💻 Development Setup (开发模式)
-
-如果需要修改代码或贡献到项目：
-
-```bash
-# Clone the repository
-git clone https://github.com/SunvidWong/Frigate_Config.git
-cd Frigate_Config
-
-# Install frontend dependencies
-cd src-ui
-npm install
-cd ..
-
-# Build the Go agent (when Go is installed)
-cd agent
-go build -o ../src-tauri/bin/agent cmd/agent/main.go
-cd ..
-
-# Run in development mode (when all dependencies are installed)
-npm run tauri dev
-```
-
-### Build for Production
-
-```bash
-# Build all components
-npm run tauri build
-```
-
-Output will be in `src-tauri/target/release/bundle/`
-
 ## 📚 Documentation
 
 ### User Documentation
