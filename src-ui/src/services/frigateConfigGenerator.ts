@@ -82,36 +82,37 @@ export class FrigateConfigGenerator {
     }
 
     // Generate detector configs based on type
+    // Following official Frigate documentation: https://docs.frigate.video/configuration/object_detectors
     usedDetectors.forEach((detectorType) => {
       switch (detectorType) {
         case 'tensorrt':
           detectors['tensorrt'] = {
             type: 'tensorrt',
-            device: 0, // GPU index
+            device: 0, // GPU index (0 = first GPU)
           };
           break;
         case 'edgetpu':
           detectors['edgetpu'] = {
             type: 'edgetpu',
-            device: 'usb',
+            device: 'usb', // Can be: usb, usb:0, pci, pci:0
           };
           break;
         case 'openvino':
           detectors['openvino'] = {
             type: 'openvino',
-            device: 'AUTO',
+            device: 'CPU', // Can be: CPU, GPU (AUTO has known issues)
           };
           break;
         case 'rknn':
           detectors['rknn'] = {
             type: 'rknn',
-            device: 'rknn',
+            num_cores: 0, // 0 = automatically choose
           };
           break;
         case 'hailo8':
           detectors['hailo8'] = {
             type: 'hailo8',
-            device: '/dev/hailo0',
+            device: 'PCIe', // PCIe is the correct value for Hailo-8
           };
           break;
         case 'cpu':
