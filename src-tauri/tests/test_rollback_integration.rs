@@ -6,7 +6,6 @@ use frigate_config_tool::config_engine::backup::{
 };
 use frigate_config_tool::config_engine::parser::ConfigParser;
 use frigate_config_tool::models::configuration_snapshot::CreationSource;
-use std::path::PathBuf;
 use tempfile::TempDir;
 
 #[tokio::test]
@@ -220,7 +219,7 @@ detectors:
     assert!(backups_dir.exists(), "Backups directory should exist");
 
     let entries: Vec<_> = std::fs::read_dir(&backups_dir).unwrap().collect();
-    assert!(entries.len() > 0, "Should have created a backup file");
+    assert!(!entries.is_empty(), "Should have created a backup file");
 }
 
 #[tokio::test]

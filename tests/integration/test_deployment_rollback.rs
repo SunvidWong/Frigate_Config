@@ -13,7 +13,6 @@ mod test_deployment_rollback {
         get_current_deployment, get_deployment_by_id, get_previous_deployment,
         load_deployment_history, restore_deployment, save_deployment_snapshot,
         stop_current_deployment, verify_rollback_success, DeploymentSnapshot, RollbackRequest,
-        RollbackResult,
     };
     use frigate_config_tool::models::deployment_state::DeploymentStatus;
 

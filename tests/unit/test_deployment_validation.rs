@@ -11,8 +11,7 @@ mod test_deployment_validation {
         check_docker_availability, check_docker_compose_availability, check_docker_permissions,
         validate_deployment_config, validate_device_paths, validate_frigate_config,
         validate_port_availability, validate_volume_paths, validate_yaml_schema,
-        validate_yaml_syntax, DeploymentConfig, ValidationError, ValidationResult,
-        ValidationWarning,
+        validate_yaml_syntax, DeploymentConfig,
     };
 
     // ========== YAML Validation Tests ==========

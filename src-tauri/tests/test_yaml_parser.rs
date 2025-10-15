@@ -1,8 +1,7 @@
 // T054: Unit tests for YAML parser with comment preservation
 // Tests for parser.rs functionality
 
-use frigate_config_tool::config_engine::parser::{ConfigParser, ParseErrorType};
-use std::path::Path;
+use frigate_config_tool::config_engine::parser::ConfigParser;
 
 #[test]
 fn test_parse_simple_frigate_config() {
@@ -96,7 +95,7 @@ detectors:
 
     // Verify comments were extracted
     assert!(
-        config.metadata.comments.len() > 0,
+        !config.metadata.comments.is_empty(),
         "Comments should be preserved"
     );
 
@@ -516,7 +515,7 @@ detectors:
         "Should detect manual edits"
     );
     assert!(
-        config.metadata.manual_edit_lines.len() > 0,
+        !config.metadata.manual_edit_lines.is_empty(),
         "Should have manual edit line numbers"
     );
 }
@@ -568,7 +567,7 @@ detectors:
 
     // Check camera-specific hwaccel args
     let camera = config.cameras.get("front_door").unwrap();
-    assert!(camera.ffmpeg_inputs.len() > 0);
+    assert!(!camera.ffmpeg_inputs.is_empty());
     let input = &camera.ffmpeg_inputs[0];
     assert!(input.hwaccel_args.is_some());
     let camera_hwaccel = input.hwaccel_args.as_ref().unwrap();

@@ -62,9 +62,8 @@ detectors:
     // Merged config should prefer UI value for enabled
     let front_door = merge_result.merged_config.cameras.get("front_door");
     assert!(front_door.is_some());
-    assert_eq!(
+    assert!(
         front_door.unwrap().enabled,
-        true,
         "Should use UI enabled value (true)"
     );
 }
@@ -465,7 +464,7 @@ detectors:
         .contains_key("manual_camera"));
 
     // Should have preserved edit
-    assert!(merge_result.preserved_edits.len() > 0);
+    assert!(!merge_result.preserved_edits.is_empty());
 }
 
 #[test]
@@ -530,7 +529,7 @@ detectors:
 
     // Should have device and model_path from manual
     assert!(
-        coral.device.is_some() || merge_result.preserved_edits.len() > 0,
+        coral.device.is_some() || !merge_result.preserved_edits.is_empty(),
         "Manual-only fields should be preserved"
     );
 }
@@ -850,7 +849,7 @@ detectors:
     assert!(merge_result.merged_config.global_config.mqtt.is_some());
 
     // Should have conflicts (backyard enabled mismatch)
-    assert!(merge_result.conflicts.len() > 0);
+    assert!(!merge_result.conflicts.is_empty());
 
     // Should have preserved edits (garage camera, coral detector, mqtt)
     assert!(merge_result.preserved_edits.len() >= 2);

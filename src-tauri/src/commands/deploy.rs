@@ -1397,6 +1397,7 @@ async fn get_docker_compose_path_internal() -> Result<Option<String>, AppError> 
 }
 
 /// 设置用户自定义的 docker-compose.yml 路径
+/// 如果传入空字符串,则删除自定义配置,恢复自动检测模式
 #[tauri::command]
 pub async fn set_docker_compose_path(
     path: String,
@@ -1404,12 +1405,6 @@ pub async fn set_docker_compose_path(
 ) -> Result<SetDockerComposePathResponse, AppError> {
     info!("设置 docker-compose.yml 路径: {}", path);
 
-    // 验证路径存在
-    if !std::path::Path::new(&path).exists() {
-        return Err(AppError::Deployment(format!("指定的路径不存在: {}", path)));
-    }
-
-    // 保存路径到配置文件
     let config_dir = dirs::config_dir()
         .ok_or_else(|| AppError::Deployment("无法获取配置目录".to_string()))?
         .join("frigate-config-tool");
@@ -1420,6 +1415,29 @@ pub async fn set_docker_compose_path(
 
     let path_file = config_dir.join("docker_compose_path.txt");
 
+    // 如果路径为空,表示重置为自动检测模式
+    if path.is_empty() {
+        // 删除配置文件
+        if path_file.exists() {
+            tokio::fs::remove_file(&path_file)
+                .await
+                .map_err(|e| AppError::Deployment(format!("删除路径配置失败: {}", e)))?;
+        }
+        info!("✓ 已重置为自动检测模式");
+        return Ok(SetDockerComposePathResponse {
+            success: true,
+            message: "已重置为自动检测模式".to_string(),
+            path: String::new(),
+        });
+    }
+
+    // 验证非空路径存在
+    if !std::path::Path::new(&path).exists() {
+        warn!("⚠️ 路径不存在,但仍会保存配置: {}", path);
+        // 不返回错误,允许用户先设置路径后创建文件
+    }
+
+    // 保存路径到配置文件
     tokio::fs::write(&path_file, &path)
         .await
         .map_err(|e| AppError::Deployment(format!("保存路径配置失败: {}", e)))?;

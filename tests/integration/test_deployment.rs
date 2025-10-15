@@ -13,7 +13,7 @@ mod test_deployment {
         execute_deployment, generate_docker_compose_config_from_request,
         generate_docker_run_command_from_request, get_container_logs, get_deployment_status,
         load_deployment_state, save_deployment_state, stop_deployment, stream_container_logs,
-        wait_for_container_ready, DeploymentRequest, DeploymentResult,
+        wait_for_container_ready, DeploymentRequest,
     };
     use frigate_config_tool::models::deployment_state::{
         DeploymentMethod, DeploymentState, DeploymentStatus,
@@ -509,7 +509,7 @@ cameras:
         let result = wait_for_container_ready("nonexistent_container", Duration::from_millis(100));
 
         // Should timeout or return error
-        assert!(result.is_err() || result.unwrap() == false);
+        assert!(result.is_err() || !result.unwrap());
     }
 
     // ========== Integration Test ==========

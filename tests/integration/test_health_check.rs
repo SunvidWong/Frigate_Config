@@ -10,8 +10,8 @@ mod test_health_check {
     use frigate_config_tool::deployment::health::{
         check_cameras_initialized, check_container_health, check_container_running,
         check_frigate_api, check_frigate_api_with_retry, check_frigate_config_loaded,
-        check_port_responding, perform_comprehensive_health_check, wait_for_healthy, HealthCheck,
-        HealthCheckConfig, HealthCheckResult, HealthStatus,
+        check_port_responding, perform_comprehensive_health_check, wait_for_healthy,
+        HealthCheckConfig, HealthStatus,
     };
 
     // ========== Container Health Check Tests ==========
@@ -198,7 +198,7 @@ mod test_health_check {
         let duration = start.elapsed();
 
         // Should timeout after specified duration
-        assert!(result.is_err() || result.unwrap() == false);
+        assert!(result.is_err() || !result.unwrap());
         assert!(duration >= Duration::from_secs(4)); // Allow some margin
         assert!(duration < Duration::from_secs(10)); // Should not exceed significantly
     }
@@ -294,7 +294,7 @@ mod test_health_check {
         let duration = start.elapsed();
 
         // Should timeout
-        assert!(result.is_err() || result.unwrap() == false);
+        assert!(result.is_err() || !result.unwrap());
         assert!(duration < Duration::from_secs(2)); // Should timeout quickly
     }
 
@@ -303,7 +303,7 @@ mod test_health_check {
         let result = check_port_responding("localhost", 0, Duration::from_secs(1));
 
         // Should fail for port 0
-        assert!(result.is_err() || result.unwrap() == false);
+        assert!(result.is_err() || !result.unwrap());
     }
 
     // ========== Frigate-Specific Health Checks ==========

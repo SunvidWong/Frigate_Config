@@ -107,7 +107,7 @@ detectors:
     // The merger detects conflicts in nested sections (detect as a whole)
     // This is correct behavior - it detects when manual config differs from UI
     assert!(
-        merge_result.conflicts.len() > 0,
+        !merge_result.conflicts.is_empty(),
         "Should detect value mismatch in detect section"
     );
 
@@ -185,7 +185,7 @@ detectors:
     // Since detect sections differ, there should be a conflict or the values should be preserved
 
     // The merger should either preserve manual fields or detect conflicts
-    let has_preserved_edits = merge_result.preserved_edits.len() > 0;
+    let has_preserved_edits = !merge_result.preserved_edits.is_empty();
     let has_detect_conflict = merge_result
         .conflicts
         .iter()
@@ -493,7 +493,7 @@ detectors:
         .collect();
 
     assert!(
-        enabled_conflicts.len() > 0,
+        !enabled_conflicts.is_empty(),
         "Should detect enabled or detect field conflict"
     );
 
@@ -586,7 +586,7 @@ detectors:
 
     // Should detect conflicts in both cameras
     assert!(
-        merge_result.conflicts.len() >= 1,
+        !merge_result.conflicts.is_empty(),
         "Should detect multiple conflicts"
     );
 
@@ -889,7 +889,7 @@ detectors:
 
     // Should have at least one conflict (enabled or detect)
     assert!(
-        merge_result.conflicts.len() > 0,
+        !merge_result.conflicts.is_empty(),
         "Should have at least one conflict"
     );
 

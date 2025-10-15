@@ -4,7 +4,6 @@
 use frigate_config_tool::config_engine::backup::{SnapshotManager, SnapshotOptions};
 use frigate_config_tool::config_engine::parser::ConfigParser;
 use frigate_config_tool::models::configuration_snapshot::CreationSource;
-use std::path::PathBuf;
 use tempfile::TempDir;
 
 #[tokio::test]
@@ -501,7 +500,10 @@ detectors:
         !comparison.identical,
         "Different configs should not be identical"
     );
-    assert!(comparison.differences.len() > 0, "Should have differences");
+    assert!(
+        !comparison.differences.is_empty(),
+        "Should have differences"
+    );
     assert!(comparison.statistics.differences_count > 0);
 }
 
