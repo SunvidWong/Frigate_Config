@@ -599,9 +599,9 @@ async fn find_docker_compose_file() -> Result<String, AppError> {
 /// 3. 通过镜像名称识别 (包含 "frigate" 字符串)
 ///
 /// 返回: (服务名称, 服务配置的可变引用)
-fn find_frigate_service<'a>(
-    services: &'a mut serde_yaml::Mapping,
-) -> Result<(String, &'a mut serde_yaml::Value), AppError> {
+fn find_frigate_service(
+    services: &mut serde_yaml::Mapping,
+) -> Result<(String, &mut serde_yaml::Value), AppError> {
     info!("=== 查找 Frigate 服务 ===");
     info!("可用服务数量: {}", services.len());
 
@@ -616,7 +616,7 @@ fn find_frigate_service<'a>(
     let mut target_service_name: Option<String> = None;
 
     // 策略 1: 精确匹配 "frigate"
-    if services.contains_key(&serde_yaml::Value::String("frigate".to_string())) {
+    if services.contains_key(serde_yaml::Value::String("frigate".to_string())) {
         info!("✓ 找到精确匹配的服务: frigate");
         target_service_name = Some("frigate".to_string());
     }
@@ -641,7 +641,7 @@ fn find_frigate_service<'a>(
             if let Some(service_name) = key.as_str() {
                 if let Some(service_map) = value.as_mapping() {
                     if let Some(image) =
-                        service_map.get(&serde_yaml::Value::String("image".to_string()))
+                        service_map.get(serde_yaml::Value::String("image".to_string()))
                     {
                         if let Some(image_str) = image.as_str() {
                             info!("  服务 '{}' 使用镜像: {}", service_name, image_str);
@@ -659,7 +659,7 @@ fn find_frigate_service<'a>(
 
     // 第二遍：获取目标服务的可变引用
     if let Some(name) = target_service_name {
-        if let Some(service) = services.get_mut(&serde_yaml::Value::String(name.clone())) {
+        if let Some(service) = services.get_mut(serde_yaml::Value::String(name.clone())) {
             return Ok((name, service));
         }
     }

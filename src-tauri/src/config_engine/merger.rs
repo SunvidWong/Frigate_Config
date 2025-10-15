@@ -208,8 +208,9 @@ impl ConfigMerger {
         let merged_content = if self.preserve_manual_comments {
             self.preserve_comments_and_formatting(&merged_yaml, &manual_config.raw_content)?
         } else {
-            serde_yaml::to_string(&merged_yaml)
-                .map_err(|e| AppError::Config(format!("Failed to serialize merged config: {}", e)))?
+            serde_yaml::to_string(&merged_yaml).map_err(|e| {
+                AppError::Config(format!("Failed to serialize merged config: {}", e))
+            })?
         };
 
         // Re-parse the merged content to create FrigateConfig
@@ -235,9 +236,10 @@ impl ConfigMerger {
             },
         };
 
-        info!("Configuration merge completed: {} conflicts, {} preserved edits",
-              merge_result.statistics.conflicts_count,
-              merge_result.statistics.preserved_edits_count);
+        info!(
+            "Configuration merge completed: {} conflicts, {} preserved edits",
+            merge_result.statistics.conflicts_count, merge_result.statistics.preserved_edits_count
+        );
 
         Ok(merge_result)
     }
@@ -305,13 +307,13 @@ impl ConfigMerger {
                 }
 
                 for camera_name in all_camera_names {
-                    let ui_camera = ui_map.get(&Value::String(camera_name.clone()));
-                    let manual_camera = manual_map.get(&Value::String(camera_name.clone()));
+                    let ui_camera = ui_map.get(Value::String(camera_name.clone()));
+                    let manual_camera = manual_map.get(Value::String(camera_name.clone()));
 
                     match (ui_camera, manual_camera) {
                         (Some(ui_cam), Some(manual_cam)) => {
                             // Camera exists in both - merge
-                                            let merged_camera = self.merge_camera_config(
+                            let merged_camera = self.merge_camera_config(
                                 &camera_name,
                                 ui_cam,
                                 manual_cam,
@@ -328,7 +330,8 @@ impl ConfigMerger {
                         }
                         (None, Some(manual_cam)) => {
                             // Only in manual - preserve
-                            merged_cameras.insert(Value::String(camera_name.clone()), manual_cam.clone());
+                            merged_cameras
+                                .insert(Value::String(camera_name.clone()), manual_cam.clone());
                             preserved_edits.push(PreservedEdit {
                                 path: format!("cameras.{}", camera_name),
                                 value: manual_cam.clone(),
@@ -341,19 +344,28 @@ impl ConfigMerger {
                 }
 
                 if let Some(merged) = merged_yaml.as_mapping_mut() {
-                    merged.insert(Value::String("cameras".to_string()), Value::Mapping(merged_cameras));
+                    merged.insert(
+                        Value::String("cameras".to_string()),
+                        Value::Mapping(merged_cameras),
+                    );
                 }
             }
             (Some(ui_map), None) => {
                 // Only UI has cameras - use as-is
                 if let Some(merged) = merged_yaml.as_mapping_mut() {
-                    merged.insert(Value::String("cameras".to_string()), Value::Mapping(ui_map.clone()));
+                    merged.insert(
+                        Value::String("cameras".to_string()),
+                        Value::Mapping(ui_map.clone()),
+                    );
                 }
             }
             (None, Some(manual_map)) => {
                 // Only manual has cameras - preserve all
                 if let Some(merged) = merged_yaml.as_mapping_mut() {
-                    merged.insert(Value::String("cameras".to_string()), Value::Mapping(manual_map.clone()));
+                    merged.insert(
+                        Value::String("cameras".to_string()),
+                        Value::Mapping(manual_map.clone()),
+                    );
                 }
                 preserved_edits.push(PreservedEdit {
                     path: "cameras".to_string(),
@@ -379,16 +391,27 @@ impl ConfigMerger {
         warnings: &mut Vec<MergeWarning>,
         auto_resolutions_count: &mut usize,
     ) -> Result<Value, AppError> {
-        let ui_mapping = ui_camera.as_mapping()
+        let ui_mapping = ui_camera
+            .as_mapping()
             .ok_or_else(|| AppError::Config("UI camera config must be a mapping".to_string()))?;
 
-        let manual_mapping = manual_camera.as_mapping()
-            .ok_or_else(|| AppError::Config("Manual camera config must be a mapping".to_string()))?;
+        let manual_mapping = manual_camera.as_mapping().ok_or_else(|| {
+            AppError::Config("Manual camera config must be a mapping".to_string())
+        })?;
 
         let mut merged_mapping = ui_mapping.clone();
 
         // Merge camera-level fields
-        let camera_fields = ["enabled", "best_image_timeout", "ffmpeg", "detect", "record", "snapshots", "objects", "motion"];
+        let camera_fields = [
+            "enabled",
+            "best_image_timeout",
+            "ffmpeg",
+            "detect",
+            "record",
+            "snapshots",
+            "objects",
+            "motion",
+        ];
 
         for field in &camera_fields {
             let path = format!("cameras.{}.{}", camera_name, field);
@@ -456,12 +479,12 @@ impl ConfigMerger {
                 }
 
                 for detector_name in all_detector_names {
-                    let ui_detector = ui_map.get(&Value::String(detector_name.clone()));
-                    let manual_detector = manual_map.get(&Value::String(detector_name.clone()));
+                    let ui_detector = ui_map.get(Value::String(detector_name.clone()));
+                    let manual_detector = manual_map.get(Value::String(detector_name.clone()));
 
                     match (ui_detector, manual_detector) {
                         (Some(ui_det), Some(manual_det)) => {
-                                            let merged_detector = self.merge_detector_config(
+                            let merged_detector = self.merge_detector_config(
                                 &detector_name,
                                 ui_det,
                                 manual_det,
@@ -476,7 +499,8 @@ impl ConfigMerger {
                             merged_detectors.insert(Value::String(detector_name), ui_det.clone());
                         }
                         (None, Some(manual_det)) => {
-                            merged_detectors.insert(Value::String(detector_name.clone()), manual_det.clone());
+                            merged_detectors
+                                .insert(Value::String(detector_name.clone()), manual_det.clone());
                             preserved_edits.push(PreservedEdit {
                                 path: format!("detectors.{}", detector_name),
                                 value: manual_det.clone(),
@@ -489,17 +513,26 @@ impl ConfigMerger {
                 }
 
                 if let Some(merged) = merged_yaml.as_mapping_mut() {
-                    merged.insert(Value::String("detectors".to_string()), Value::Mapping(merged_detectors));
+                    merged.insert(
+                        Value::String("detectors".to_string()),
+                        Value::Mapping(merged_detectors),
+                    );
                 }
             }
             (Some(ui_map), None) => {
                 if let Some(merged) = merged_yaml.as_mapping_mut() {
-                    merged.insert(Value::String("detectors".to_string()), Value::Mapping(ui_map.clone()));
+                    merged.insert(
+                        Value::String("detectors".to_string()),
+                        Value::Mapping(ui_map.clone()),
+                    );
                 }
             }
             (None, Some(manual_map)) => {
                 if let Some(merged) = merged_yaml.as_mapping_mut() {
-                    merged.insert(Value::String("detectors".to_string()), Value::Mapping(manual_map.clone()));
+                    merged.insert(
+                        Value::String("detectors".to_string()),
+                        Value::Mapping(manual_map.clone()),
+                    );
                 }
                 preserved_edits.push(PreservedEdit {
                     path: "detectors".to_string(),
@@ -525,16 +558,26 @@ impl ConfigMerger {
         warnings: &mut Vec<MergeWarning>,
         auto_resolutions_count: &mut usize,
     ) -> Result<Value, AppError> {
-        let ui_mapping = ui_detector.as_mapping()
+        let ui_mapping = ui_detector
+            .as_mapping()
             .ok_or_else(|| AppError::Config("UI detector config must be a mapping".to_string()))?;
 
-        let manual_mapping = manual_detector.as_mapping()
-            .ok_or_else(|| AppError::Config("Manual detector config must be a mapping".to_string()))?;
+        let manual_mapping = manual_detector.as_mapping().ok_or_else(|| {
+            AppError::Config("Manual detector config must be a mapping".to_string())
+        })?;
 
         let mut merged_mapping = ui_mapping.clone();
 
         // Merge detector fields
-        let detector_fields = ["type", "model", "model_path", "labelmap_path", "input_tensor", "input_pixel_format", "device"];
+        let detector_fields = [
+            "type",
+            "model",
+            "model_path",
+            "labelmap_path",
+            "input_tensor",
+            "input_pixel_format",
+            "device",
+        ];
 
         for field in &detector_fields {
             let path = format!("detectors.{}.{}", detector_name, field);
@@ -579,7 +622,7 @@ impl ConfigMerger {
         path: &str,
         conflicts: &mut Vec<ConfigConflict>,
         preserved_edits: &mut Vec<PreservedEdit>,
-        warnings: &mut Vec<MergeWarning>,
+        _warnings: &mut Vec<MergeWarning>,
         auto_resolutions_count: &mut usize,
     ) -> Result<(), AppError> {
         let field_key = Value::String(field.to_string());
@@ -647,8 +690,8 @@ impl ConfigMerger {
         section_path: &str,
         conflicts: &mut Vec<ConfigConflict>,
         preserved_edits: &mut Vec<PreservedEdit>,
-        warnings: &mut Vec<MergeWarning>,
-        auto_resolutions_count: &mut usize,
+        _warnings: &mut Vec<MergeWarning>,
+        _auto_resolutions_count: &mut usize,
     ) -> Result<(), AppError> {
         let ui_section = ui_yaml.get(section_path);
         let manual_section = manual_yaml.get(section_path);
@@ -691,7 +734,10 @@ impl ConfigMerger {
                 preserved_edits.push(PreservedEdit {
                     path: section_path.to_string(),
                     value: manual_val.clone(),
-                    reason: format!("Section '{}' only exists in manual configuration", section_path),
+                    reason: format!(
+                        "Section '{}' only exists in manual configuration",
+                        section_path
+                    ),
                     line_number: 0,
                 });
             }
@@ -719,13 +765,22 @@ impl ConfigMerger {
 
         let description = match &conflict_type {
             ConflictType::ValueMismatch => {
-                format!("Field '{}' has different values in UI and manual configuration", field)
+                format!(
+                    "Field '{}' has different values in UI and manual configuration",
+                    field
+                )
             }
             ConflictType::MissingField => {
-                format!("Field '{}' exists in one configuration but not the other", field)
+                format!(
+                    "Field '{}' exists in one configuration but not the other",
+                    field
+                )
             }
             ConflictType::StructuralDifference => {
-                format!("Field '{}' has structural differences between configurations", field)
+                format!(
+                    "Field '{}' has structural differences between configurations",
+                    field
+                )
             }
             _ => format!("Conflict in field '{}'", field),
         };
@@ -773,11 +828,19 @@ impl ConfigMerger {
     }
 
     /// Determine conflict severity based on field and type
-    fn determine_conflict_severity(&self, conflict_type: &ConflictType, field: &str, path: &str) -> ConflictSeverity {
+    fn determine_conflict_severity(
+        &self,
+        conflict_type: &ConflictType,
+        field: &str,
+        path: &str,
+    ) -> ConflictSeverity {
         match conflict_type {
             ConflictType::ValueMismatch => {
                 // Critical fields that should not have conflicts
-                if field == "enabled" || path.contains("detect.enabled") || path.contains("record.enabled") {
+                if field == "enabled"
+                    || path.contains("detect.enabled")
+                    || path.contains("record.enabled")
+                {
                     ConflictSeverity::Critical
                 } else if path.contains("ffmpeg") || path.contains("model_path") {
                     ConflictSeverity::Warning
@@ -849,12 +912,15 @@ impl ConfigMerger {
 
     /// Auto-resolve a conflict
     fn auto_resolve_conflict(&self, conflict: &ConfigConflict) -> ConflictResolution {
-        conflict.suggested_resolution.clone().unwrap_or(ConflictResolution {
-            resolution_type: ResolutionType::ManualReview,
-            suggested_value: None,
-            description: "Manual review required".to_string(),
-            auto_applicable: false,
-        })
+        conflict
+            .suggested_resolution
+            .clone()
+            .unwrap_or(ConflictResolution {
+                resolution_type: ResolutionType::ManualReview,
+                suggested_value: None,
+                description: "Manual review required".to_string(),
+                auto_applicable: false,
+            })
     }
 
     /// Preserve comments and formatting from manual config
@@ -873,16 +939,15 @@ impl ConfigMerger {
     pub fn count_total_fields(yaml: &Value) -> usize {
         fn count_value(value: &Value) -> usize {
             match value {
-                Value::Mapping(mapping) => {
-                    mapping.iter().map(|(k, v)| count_value(k) + count_value(v)).sum()
-                }
-                Value::Sequence(sequence) => {
-                    sequence.iter().map(count_value).sum()
-                }
+                Value::Mapping(mapping) => mapping
+                    .iter()
+                    .map(|(k, v)| count_value(k) + count_value(v))
+                    .sum(),
+                Value::Sequence(sequence) => sequence.iter().map(count_value).sum(),
                 _ => 1,
             }
         }
-        count_value(&yaml)
+        count_value(yaml)
     }
 
     /// Resolve conflicts automatically based on preferences
@@ -901,7 +966,11 @@ impl ConfigMerger {
                     // Apply the resolution
                     if let Some(suggested_value) = &resolution.suggested_value {
                         // Update the merged config with the resolved value
-                        self.apply_resolution(&mut merge_result.merged_config, &conflict.path, suggested_value)?;
+                        self.apply_resolution(
+                            &mut merge_result.merged_config,
+                            &conflict.path,
+                            suggested_value,
+                        )?;
                         auto_resolutions_count += 1;
                     }
                 }
@@ -935,10 +1004,9 @@ impl ConfigMerger {
             } else {
                 // Navigate deeper
                 current = match current.as_mapping_mut() {
-                    Some(mapping) => {
-                        mapping.entry(Value::String(part.to_string()))
-                            .or_insert_with(|| Value::Mapping(Mapping::new()))
-                    }
+                    Some(mapping) => mapping
+                        .entry(Value::String(part.to_string()))
+                        .or_insert_with(|| Value::Mapping(Mapping::new())),
                     None => return Err(AppError::Config(format!("Invalid path: {}", path))),
                 };
             }
@@ -958,7 +1026,8 @@ impl ConfigMerger {
         Ok(MergePreview {
             summary: self.generate_summary(&merge_result),
             conflicts_preview: self.generate_conflicts_preview(&merge_result.conflicts),
-            preserved_edits_preview: self.generate_preserved_edits_preview(&merge_result.preserved_edits),
+            preserved_edits_preview: self
+                .generate_preserved_edits_preview(&merge_result.preserved_edits),
             statistics: merge_result.statistics,
         })
     }
@@ -974,16 +1043,18 @@ impl ConfigMerger {
 
     /// Generate conflicts preview
     fn generate_conflicts_preview(&self, conflicts: &[ConfigConflict]) -> Vec<String> {
-        conflicts.iter().map(|conflict| {
-            format!("{}: {}", conflict.path, conflict.description)
-        }).collect()
+        conflicts
+            .iter()
+            .map(|conflict| format!("{}: {}", conflict.path, conflict.description))
+            .collect()
     }
 
     /// Generate preserved edits preview
     fn generate_preserved_edits_preview(&self, preserved_edits: &[PreservedEdit]) -> Vec<String> {
-        preserved_edits.iter().map(|edit| {
-            format!("{}: {}", edit.path, edit.reason)
-        }).collect()
+        preserved_edits
+            .iter()
+            .map(|edit| format!("{}: {}", edit.path, edit.reason))
+            .collect()
     }
 }
 

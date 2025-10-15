@@ -3,7 +3,6 @@
 
 #![allow(dead_code)]
 
-
 // Placeholder for future query implementations
 // These will be implemented in Phase 4+ as needed
 

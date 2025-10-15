@@ -1,7 +1,7 @@
 // Configuration validation
 // Comprehensive Frigate configuration validation with hardware compatibility checking
 
-use crate::config_engine::parser::{FrigateConfig, CameraConfig, DetectorConfig};
+use crate::config_engine::parser::{CameraConfig, DetectorConfig, FrigateConfig};
 use crate::error::AppError;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -231,14 +231,20 @@ impl ConfigValidator {
         let hardware_compatibility = self.validate_hardware_compatibility(config);
 
         // Generate performance suggestions
-        let performance_suggestions = self.generate_performance_suggestions(config, &hardware_compatibility);
+        let performance_suggestions =
+            self.generate_performance_suggestions(config, &hardware_compatibility);
         suggestions.extend(performance_suggestions);
 
         // Check for common misconfigurations
         let common_warnings = self.check_common_issues(config);
         warnings.extend(common_warnings);
 
-        let is_valid = errors.iter().all(|e| matches!(e.severity, ValidationSeverity::Warning | ValidationSeverity::Info));
+        let is_valid = errors.iter().all(|e| {
+            matches!(
+                e.severity,
+                ValidationSeverity::Warning | ValidationSeverity::Info
+            )
+        });
 
         Ok(ValidationResult {
             is_valid,
@@ -273,7 +279,9 @@ impl ConfigValidator {
                 field: Some("detectors".to_string()),
                 severity: ValidationSeverity::Warning,
                 line_number: None,
-                suggestion: Some("Add a detector configuration (e.g., Coral, CPU, or GPU)".to_string()),
+                suggestion: Some(
+                    "Add a detector configuration (e.g., Coral, CPU, or GPU)".to_string(),
+                ),
             });
         }
 
@@ -311,30 +319,39 @@ impl ConfigValidator {
                 }
 
                 // Check for RTSP path format
-                if input.path.starts_with("rtsp://") {
-                    if !input.path.contains("@") && !input.path.contains("://") {
-                        errors.push(ValidationError {
-                            code: "INVALID_RTSP_FORMAT".to_string(),
-                            message: format!("Camera '{}' RTSP path may be malformed", camera_name),
-                            field: Some(format!("cameras.{}.ffmpeg.inputs.path", camera_name)),
-                            severity: ValidationSeverity::Warning,
-                            line_number: None,
-                            suggestion: Some("Check RTSP URL format: rtsp://[username:password@]host[:port]/path".to_string()),
-                        });
-                    }
+                if input.path.starts_with("rtsp://")
+                    && !input.path.contains("@")
+                    && !input.path.contains("://")
+                {
+                    errors.push(ValidationError {
+                        code: "INVALID_RTSP_FORMAT".to_string(),
+                        message: format!("Camera '{}' RTSP path may be malformed", camera_name),
+                        field: Some(format!("cameras.{}.ffmpeg.inputs.path", camera_name)),
+                        severity: ValidationSeverity::Warning,
+                        line_number: None,
+                        suggestion: Some(
+                            "Check RTSP URL format: rtsp://[username:password@]host[:port]/path"
+                                .to_string(),
+                        ),
+                    });
                 }
             }
 
             // Validate detection settings
             if let Some(detect) = camera.detect.fps {
-                if detect < 1.0 || detect > 60.0 {
+                if !(1.0..=60.0).contains(&detect) {
                     errors.push(ValidationError {
                         code: "INVALID_FPS".to_string(),
-                        message: format!("Camera '{}' has invalid FPS value: {}", camera_name, detect),
+                        message: format!(
+                            "Camera '{}' has invalid FPS value: {}",
+                            camera_name, detect
+                        ),
                         field: Some(format!("cameras.{}.detect.fps", camera_name)),
                         severity: ValidationSeverity::Warning,
                         line_number: None,
-                        suggestion: Some("FPS should be between 1 and 60 for optimal performance".to_string()),
+                        suggestion: Some(
+                            "FPS should be between 1 and 60 for optimal performance".to_string(),
+                        ),
                     });
                 }
             }
@@ -356,7 +373,9 @@ impl ConfigValidator {
                     field: Some(format!("detectors.{}.model", detector_name)),
                     severity: ValidationSeverity::Error,
                     line_number: None,
-                    suggestion: Some("Specify detector model (e.g., edgetpu, cpu, gpu)".to_string()),
+                    suggestion: Some(
+                        "Specify detector model (e.g., edgetpu, cpu, gpu)".to_string(),
+                    ),
                 });
             }
 
@@ -364,7 +383,10 @@ impl ConfigValidator {
             if detector.model != "cpu" && detector.device.is_none() {
                 errors.push(ValidationError {
                     code: "NO_DEVICE_PATH".to_string(),
-                    message: format!("Hardware detector '{}' has no device specified", detector_name),
+                    message: format!(
+                        "Hardware detector '{}' has no device specified",
+                        detector_name
+                    ),
                     field: Some(format!("detectors.{}.device", detector_name)),
                     severity: ValidationSeverity::Warning,
                     line_number: None,
@@ -386,17 +408,18 @@ impl ConfigValidator {
         if let Some(ref hardware) = self.hardware_detection {
             // Check GPU compatibility for cameras
             for (camera_name, camera) in &config.cameras {
-                let gpu_available: Vec<String> = hardware.devices
+                let gpu_available: Vec<String> = hardware
+                    .devices
                     .iter()
                     .filter(|d| d.r#type == "gpu" && d.available)
                     .map(|d| d.name.clone())
                     .collect();
 
                 let gpu_required = self.get_required_gpu(camera);
-                let is_compatible = gpu_available.is_empty() ||
-                    gpu_required.as_ref().map_or(true, |req|
+                let is_compatible = gpu_available.is_empty()
+                    || gpu_required.as_ref().map_or(true, |req| {
                         gpu_available.iter().any(|gpu| gpu.contains(req))
-                    );
+                    });
 
                 gpu_compatibility.push(GPUCompatibility {
                     camera_name: camera_name.clone(),
@@ -413,22 +436,24 @@ impl ConfigValidator {
                         current_load: 0.0,
                         predicted_load: 100.0,
                         impact: "High CPU usage expected due to software decoding".to_string(),
-                        recommendation: "Consider hardware acceleration or reduce resolution/FPS".to_string(),
+                        recommendation: "Consider hardware acceleration or reduce resolution/FPS"
+                            .to_string(),
                     });
                 }
             }
 
             // Check detector compatibility
             for (detector_name, detector) in &config.detectors {
-                let compatible_hardware: Vec<String> = hardware.devices
+                let compatible_hardware: Vec<String> = hardware
+                    .devices
                     .iter()
-                    .filter(|d| {
-                        match detector.model.as_str() {
-                            "edgetpu" => d.r#type == "tpu" && d.capabilities.contains(&"edge_tpu".to_string()),
-                            "cpu" => d.r#type == "cpu",
-                            "gpu" => d.r#type == "gpu" && d.capabilities.contains(&"cuda".to_string()),
-                            _ => false,
+                    .filter(|d| match detector.model.as_str() {
+                        "edgetpu" => {
+                            d.r#type == "tpu" && d.capabilities.contains(&"edge_tpu".to_string())
                         }
+                        "cpu" => d.r#type == "cpu",
+                        "gpu" => d.r#type == "gpu" && d.capabilities.contains(&"cuda".to_string()),
+                        _ => false,
                     })
                     .map(|d| d.name.clone())
                     .collect();
@@ -436,9 +461,10 @@ impl ConfigValidator {
                 let hardware_required = self.get_required_hardware(detector);
                 let performance_tier = if compatible_hardware.is_empty() {
                     PerformanceTier::Incompatible
-                } else if hardware_required.iter().all(|req|
-                    compatible_hardware.iter().any(|hw| hw.contains(req))
-                ) {
+                } else if hardware_required
+                    .iter()
+                    .all(|req| compatible_hardware.iter().any(|hw| hw.contains(req)))
+                {
                     PerformanceTier::High
                 } else {
                     PerformanceTier::Medium
@@ -455,14 +481,20 @@ impl ConfigValidator {
 
                 // Add recommendations
                 if compatible_hardware.is_empty() {
-                    recommendations.push(format!("Detector '{}' ({}) has no compatible hardware available", detector_name, detector.model));
+                    recommendations.push(format!(
+                        "Detector '{}' ({}) has no compatible hardware available",
+                        detector_name, detector.model
+                    ));
                 }
             }
 
             // Calculate overall compatibility score
             let total_checks = gpu_compatibility.len() + detector_compatibility.len();
-            let compatible_checks = gpu_compatibility.iter().filter(|g| g.is_compatible).count() +
-                                 detector_compatibility.iter().filter(|d| d.is_compatible).count();
+            let compatible_checks = gpu_compatibility.iter().filter(|g| g.is_compatible).count()
+                + detector_compatibility
+                    .iter()
+                    .filter(|d| d.is_compatible)
+                    .count();
             let overall_score = if total_checks > 0 {
                 (compatible_checks as f32) / (total_checks as f32) * 100.0
             } else {
@@ -480,7 +512,11 @@ impl ConfigValidator {
     }
 
     /// Generate performance suggestions
-    fn generate_performance_suggestions(&self, _config: &FrigateConfig, hardware: &HardwareCompatibility) -> Vec<ConfigurationSuggestion> {
+    fn generate_performance_suggestions(
+        &self,
+        _config: &FrigateConfig,
+        hardware: &HardwareCompatibility,
+    ) -> Vec<ConfigurationSuggestion> {
         let mut suggestions = Vec::new();
 
         // Suggest hardware acceleration for cameras
@@ -488,17 +524,23 @@ impl ConfigValidator {
             if !gpu_comp.is_compatible && !gpu_comp.gpu_available.is_empty() {
                 suggestions.push(ConfigurationSuggestion {
                     title: "Enable Hardware Acceleration".to_string(),
-                    description: format!("Camera '{}' could benefit from hardware acceleration to reduce CPU usage", gpu_comp.camera_name),
+                    description: format!(
+                        "Camera '{}' could benefit from hardware acceleration to reduce CPU usage",
+                        gpu_comp.camera_name
+                    ),
                     category: SuggestionCategory::Performance,
                     impact: ImpactLevel::High,
-                    changes: vec![
-                        ConfigChange {
-                            path: format!("cameras.{}.ffmpeg.hwaccel_args", gpu_comp.camera_name),
-                            old_value: None,
-                            new_value: serde_json::json!(["-hwaccel", "cuda", "-hwaccel_output_format", "cuda"]),
-                            reason: "Enable GPU acceleration for better performance".to_string(),
-                        }
-                    ],
+                    changes: vec![ConfigChange {
+                        path: format!("cameras.{}.ffmpeg.hwaccel_args", gpu_comp.camera_name),
+                        old_value: None,
+                        new_value: serde_json::json!([
+                            "-hwaccel",
+                            "cuda",
+                            "-hwaccel_output_format",
+                            "cuda"
+                        ]),
+                        reason: "Enable GPU acceleration for better performance".to_string(),
+                    }],
                 });
             }
         }
@@ -508,17 +550,18 @@ impl ConfigValidator {
             if detector_comp.performance_tier == PerformanceTier::Medium {
                 suggestions.push(ConfigurationSuggestion {
                     title: "Optimize Detector Performance".to_string(),
-                    description: format!("Detector '{}' could be optimized for better performance", detector_comp.detector_name),
+                    description: format!(
+                        "Detector '{}' could be optimized for better performance",
+                        detector_comp.detector_name
+                    ),
                     category: SuggestionCategory::Performance,
                     impact: ImpactLevel::Medium,
-                    changes: vec![
-                        ConfigChange {
-                            path: format!("detectors.{}.max_labels", detector_comp.detector_name),
-                            old_value: None,
-                            new_value: serde_json::json!(5),
-                            reason: "Reduce max_labels for better performance".to_string(),
-                        }
-                    ],
+                    changes: vec![ConfigChange {
+                        path: format!("detectors.{}.max_labels", detector_comp.detector_name),
+                        old_value: None,
+                        new_value: serde_json::json!(5),
+                        reason: "Reduce max_labels for better performance".to_string(),
+                    }],
                 });
             }
         }
@@ -536,10 +579,15 @@ impl ConfigValidator {
                 if detect > 30.0 {
                     warnings.push(ValidationWarning {
                         code: "HIGH_FPS".to_string(),
-                        message: format!("Camera '{}' has high FPS ({}), which may impact performance", camera_name, detect),
+                        message: format!(
+                            "Camera '{}' has high FPS ({}), which may impact performance",
+                            camera_name, detect
+                        ),
                         field: Some(format!("cameras.{}.detect.fps", camera_name)),
                         line_number: None,
-                        recommendation: Some("Consider reducing FPS to 15-30 for optimal performance".to_string()),
+                        recommendation: Some(
+                            "Consider reducing FPS to 15-30 for optimal performance".to_string(),
+                        ),
                     });
                 }
             }
@@ -551,7 +599,9 @@ impl ConfigValidator {
                     message: format!("Camera '{}' has no recording configuration", camera_name),
                     field: Some(format!("cameras.{}.record", camera_name)),
                     line_number: None,
-                    recommendation: Some("Consider enabling recording for security coverage".to_string()),
+                    recommendation: Some(
+                        "Consider enabling recording for security coverage".to_string(),
+                    ),
                 });
             }
         }
@@ -562,7 +612,10 @@ impl ConfigValidator {
             // This is a simplified check - in practice, you'd need to determine which detector each camera uses
             if camera.detect.enabled {
                 // Assume default detector for this example
-                detector_usage.entry("default".to_string()).or_insert_with(Vec::new).push(camera_name.clone());
+                detector_usage
+                    .entry("default".to_string())
+                    .or_default()
+                    .push(camera_name.clone());
             }
         }
 
@@ -604,7 +657,11 @@ impl ConfigValidator {
     }
 
     /// Calculate performance impact
-    fn calculate_performance_impact(&self, camera: &CameraConfig, available_gpus: &[String]) -> PerformanceImpact {
+    fn calculate_performance_impact(
+        &self,
+        camera: &CameraConfig,
+        available_gpus: &[String],
+    ) -> PerformanceImpact {
         if available_gpus.is_empty() {
             PerformanceImpact::High
         } else if camera.detect.fps.unwrap_or(0.0) > 30.0 {
@@ -641,7 +698,8 @@ impl ConfigValidator {
                     if !config.cameras.is_empty() && config.detectors.is_empty() {
                         errors.push(ValidationError {
                             code: "NO_DETECTORS".to_string(),
-                            message: "Cameras are configured but no detectors are defined".to_string(),
+                            message: "Cameras are configured but no detectors are defined"
+                                .to_string(),
                             field: Some("detectors".to_string()),
                             severity: ValidationSeverity::Warning,
                             line_number: None,

@@ -301,8 +301,11 @@ fn list_all_disks_linux() -> Result<Vec<DiskInfo>, String> {
 
         // Skip tmpfs, devtmpfs, and other virtual filesystems
         let fs_type = parts[1];
-        if fs_type.starts_with("tmpfs") || fs_type.starts_with("devtmpfs") ||
-           fs_type == "overlay" || fs_type == "squashfs" {
+        if fs_type.starts_with("tmpfs")
+            || fs_type.starts_with("devtmpfs")
+            || fs_type == "overlay"
+            || fs_type == "squashfs"
+        {
             continue;
         }
 
@@ -432,7 +435,10 @@ fn list_all_disks_windows() -> Result<Vec<DiskInfo>, String> {
 }
 
 /// Check if disk space is below threshold and return warning message
-pub fn check_disk_space_warning<P: AsRef<Path>>(path: P, threshold: u64) -> Result<Option<String>, String> {
+pub fn check_disk_space_warning<P: AsRef<Path>>(
+    path: P,
+    threshold: u64,
+) -> Result<Option<String>, String> {
     let disk_info = get_disk_info(path)?;
 
     if disk_info.free < threshold {
@@ -472,11 +478,7 @@ pub fn validate_volume_path<P: AsRef<Path>>(path: P) -> Result<(), Vec<String>> 
             let _ = std::fs::remove_file(&test_file);
         }
         Err(e) => {
-            errors.push(format!(
-                "Path is not writable: {} ({})",
-                path.display(),
-                e
-            ));
+            errors.push(format!("Path is not writable: {} ({})", path.display(), e));
         }
     }
 
@@ -543,7 +545,10 @@ mod tests {
         assert_eq!(DiskInfo::format_size(1024), "1.00 KB");
         assert_eq!(DiskInfo::format_size(1024 * 1024), "1.00 MB");
         assert_eq!(DiskInfo::format_size(1024 * 1024 * 1024), "1.00 GB");
-        assert_eq!(DiskInfo::format_size(1024u64 * 1024 * 1024 * 1024), "1.00 TB");
+        assert_eq!(
+            DiskInfo::format_size(1024u64 * 1024 * 1024 * 1024),
+            "1.00 TB"
+        );
     }
 
     #[test]

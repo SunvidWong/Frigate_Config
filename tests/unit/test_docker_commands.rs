@@ -8,8 +8,8 @@ mod test_docker_commands {
 
     // Import actual implementation from src-tauri/src/deployment/docker.rs
     use frigate_config_tool::deployment::docker::{
-        generate_docker_run_command, generate_docker_compose_yaml, validate_docker_config,
-        DockerRunConfig, DockerComposeConfig, DockerServiceConfig,
+        generate_docker_compose_yaml, generate_docker_run_command, validate_docker_config,
+        DockerComposeConfig, DockerRunConfig, DockerServiceConfig,
     };
 
     #[test]
@@ -273,7 +273,10 @@ mod test_docker_commands {
             container_name: "frigate".to_string(),
             ports: vec![],
             volumes: vec![
-                ("/path/with spaces/config".to_string(), "/config".to_string()),
+                (
+                    "/path/with spaces/config".to_string(),
+                    "/config".to_string(),
+                ),
                 ("/path/with$dollar".to_string(), "/media".to_string()),
             ],
             devices: vec![],
@@ -288,7 +291,7 @@ mod test_docker_commands {
         // Verify paths are properly quoted/escaped
         assert!(
             command.contains("\"/path/with spaces/config\"")
-            || command.contains("'/path/with spaces/config'")
+                || command.contains("'/path/with spaces/config'")
         );
     }
 

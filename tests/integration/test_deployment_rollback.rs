@@ -9,11 +9,11 @@ mod test_deployment_rollback {
 
     // Import actual implementation
     use frigate_config_tool::deployment::rollback::{
-        DeploymentSnapshot, RollbackRequest, RollbackResult,
-        save_deployment_snapshot, load_deployment_history, get_previous_deployment,
-        get_deployment_by_id, execute_rollback, stop_current_deployment,
-        restore_deployment, verify_rollback_success, cleanup_failed_deployment,
-        automatic_rollback_on_health_failure, get_current_deployment,
+        automatic_rollback_on_health_failure, cleanup_failed_deployment, execute_rollback,
+        get_current_deployment, get_deployment_by_id, get_previous_deployment,
+        load_deployment_history, restore_deployment, save_deployment_snapshot,
+        stop_current_deployment, verify_rollback_success, DeploymentSnapshot, RollbackRequest,
+        RollbackResult,
     };
     use frigate_config_tool::models::deployment_state::DeploymentStatus;
 
@@ -167,7 +167,10 @@ mod test_deployment_rollback {
 
         if let Ok(rollback) = result {
             assert!(rollback.success || !rollback.success);
-            assert!(rollback.restored_container_id.is_some() || rollback.restored_container_id.is_none());
+            assert!(
+                rollback.restored_container_id.is_some()
+                    || rollback.restored_container_id.is_none()
+            );
         }
     }
 
@@ -204,7 +207,11 @@ mod test_deployment_rollback {
 
         // Get current deployment count
         let history_before = load_deployment_history();
-        let count_before = if let Ok(h) = history_before { h.len() } else { 0 };
+        let count_before = if let Ok(h) = history_before {
+            h.len()
+        } else {
+            0
+        };
 
         // Execute rollback
         let _result = execute_rollback(&request);
@@ -360,13 +367,19 @@ mod test_deployment_rollback {
             // Accept various error messages (container issues or no previous deployment)
             assert!(
                 error.to_lowercase().contains("no previous")
-                || error.to_lowercase().contains("first deployment")
-                || error.to_lowercase().contains("unhealthy")
-                || error.to_lowercase().contains("container not found")
-                || error.to_lowercase().contains("failed to")
+                    || error.to_lowercase().contains("first deployment")
+                    || error.to_lowercase().contains("unhealthy")
+                    || error.to_lowercase().contains("container not found")
+                    || error.to_lowercase().contains("failed to")
             );
         } else if let Ok(rollback) = result {
-            assert!(!rollback.success || rollback.errors.iter().any(|e| e.to_lowercase().contains("previous")));
+            assert!(
+                !rollback.success
+                    || rollback
+                        .errors
+                        .iter()
+                        .any(|e| e.to_lowercase().contains("previous"))
+            );
         }
     }
 

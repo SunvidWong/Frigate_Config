@@ -1,9 +1,7 @@
 // T055: Unit tests for conflict detection in merger
 // Tests for merger.rs conflict detection functionality
 
-use frigate_config_tool::config_engine::merger::{
-    ConfigMerger, ConflictSeverity
-};
+use frigate_config_tool::config_engine::merger::{ConfigMerger, ConflictSeverity};
 use frigate_config_tool::config_engine::parser::ConfigParser;
 
 #[test]
@@ -28,8 +26,14 @@ detectors:
 "#;
 
     let parser = ConfigParser::new();
-    let ui_config = parser.parse_content(yaml_content.to_string(), "ui.yaml".to_string()).unwrap().config;
-    let manual_config = parser.parse_content(yaml_content.to_string(), "manual.yaml".to_string()).unwrap().config;
+    let ui_config = parser
+        .parse_content(yaml_content.to_string(), "ui.yaml".to_string())
+        .unwrap()
+        .config;
+    let manual_config = parser
+        .parse_content(yaml_content.to_string(), "manual.yaml".to_string())
+        .unwrap()
+        .config;
 
     let merger = ConfigMerger::new();
     let result = merger.merge_configurations(&ui_config, &manual_config);
@@ -37,7 +41,11 @@ detectors:
     assert!(result.is_ok(), "Merge should succeed for identical configs");
     let merge_result = result.unwrap();
 
-    assert_eq!(merge_result.conflicts.len(), 0, "Should have no conflicts for identical configs");
+    assert_eq!(
+        merge_result.conflicts.len(),
+        0,
+        "Should have no conflicts for identical configs"
+    );
     assert_eq!(merge_result.statistics.conflicts_count, 0);
 }
 
@@ -81,8 +89,14 @@ detectors:
 "#;
 
     let parser = ConfigParser::new();
-    let ui_config = parser.parse_content(ui_yaml.to_string(), "ui.yaml".to_string()).unwrap().config;
-    let manual_config = parser.parse_content(manual_yaml.to_string(), "manual.yaml".to_string()).unwrap().config;
+    let ui_config = parser
+        .parse_content(ui_yaml.to_string(), "ui.yaml".to_string())
+        .unwrap()
+        .config;
+    let manual_config = parser
+        .parse_content(manual_yaml.to_string(), "manual.yaml".to_string())
+        .unwrap()
+        .config;
 
     let merger = ConfigMerger::new();
     let result = merger.merge_configurations(&ui_config, &manual_config);
@@ -92,13 +106,20 @@ detectors:
 
     // The merger detects conflicts in nested sections (detect as a whole)
     // This is correct behavior - it detects when manual config differs from UI
-    assert!(merge_result.conflicts.len() > 0, "Should detect value mismatch in detect section");
+    assert!(
+        merge_result.conflicts.len() > 0,
+        "Should detect value mismatch in detect section"
+    );
 
     // Check that a detect-related conflict was found
-    let has_detect_conflict = merge_result.conflicts.iter().any(|c|
-        c.path.contains("detect") || c.path.contains("enabled")
+    let has_detect_conflict = merge_result
+        .conflicts
+        .iter()
+        .any(|c| c.path.contains("detect") || c.path.contains("enabled"));
+    assert!(
+        has_detect_conflict,
+        "Should detect conflict in detect section"
     );
-    assert!(has_detect_conflict, "Should detect conflict in detect section");
 }
 
 #[test]
@@ -144,8 +165,14 @@ detectors:
 "#;
 
     let parser = ConfigParser::new();
-    let ui_config = parser.parse_content(ui_yaml.to_string(), "ui.yaml".to_string()).unwrap().config;
-    let manual_config = parser.parse_content(manual_yaml.to_string(), "manual.yaml".to_string()).unwrap().config;
+    let ui_config = parser
+        .parse_content(ui_yaml.to_string(), "ui.yaml".to_string())
+        .unwrap()
+        .config;
+    let manual_config = parser
+        .parse_content(manual_yaml.to_string(), "manual.yaml".to_string())
+        .unwrap()
+        .config;
 
     let merger = ConfigMerger::new();
     let result = merger.merge_configurations(&ui_config, &manual_config);
@@ -159,7 +186,10 @@ detectors:
 
     // The merger should either preserve manual fields or detect conflicts
     let has_preserved_edits = merge_result.preserved_edits.len() > 0;
-    let has_detect_conflict = merge_result.conflicts.iter().any(|c| c.path.contains("detect"));
+    let has_detect_conflict = merge_result
+        .conflicts
+        .iter()
+        .any(|c| c.path.contains("detect"));
 
     assert!(
         has_preserved_edits || has_detect_conflict,
@@ -213,8 +243,14 @@ detectors:
 "#;
 
     let parser = ConfigParser::new();
-    let ui_config = parser.parse_content(ui_yaml.to_string(), "ui.yaml".to_string()).unwrap().config;
-    let manual_config = parser.parse_content(manual_yaml.to_string(), "manual.yaml".to_string()).unwrap().config;
+    let ui_config = parser
+        .parse_content(ui_yaml.to_string(), "ui.yaml".to_string())
+        .unwrap()
+        .config;
+    let manual_config = parser
+        .parse_content(manual_yaml.to_string(), "manual.yaml".to_string())
+        .unwrap()
+        .config;
 
     let merger = ConfigMerger::new();
     let result = merger.merge_configurations(&ui_config, &manual_config);
@@ -223,14 +259,25 @@ detectors:
     let merge_result = result.unwrap();
 
     // Backyard camera should be preserved
-    assert!(merge_result.merged_config.cameras.contains_key("backyard"), "Should preserve manual-only camera");
-    assert_eq!(merge_result.merged_config.cameras.len(), 2, "Should have both cameras");
+    assert!(
+        merge_result.merged_config.cameras.contains_key("backyard"),
+        "Should preserve manual-only camera"
+    );
+    assert_eq!(
+        merge_result.merged_config.cameras.len(),
+        2,
+        "Should have both cameras"
+    );
 
     // Should have preserved edit for backyard camera
-    let has_backyard_preserved = merge_result.preserved_edits.iter().any(|e|
-        e.path.contains("backyard")
+    let has_backyard_preserved = merge_result
+        .preserved_edits
+        .iter()
+        .any(|e| e.path.contains("backyard"));
+    assert!(
+        has_backyard_preserved,
+        "Should track preserved manual-only camera"
     );
-    assert!(has_backyard_preserved, "Should track preserved manual-only camera");
 }
 
 #[test]
@@ -275,8 +322,14 @@ detectors:
 "#;
 
     let parser = ConfigParser::new();
-    let ui_config = parser.parse_content(ui_yaml.to_string(), "ui.yaml".to_string()).unwrap().config;
-    let manual_config = parser.parse_content(manual_yaml.to_string(), "manual.yaml".to_string()).unwrap().config;
+    let ui_config = parser
+        .parse_content(ui_yaml.to_string(), "ui.yaml".to_string())
+        .unwrap()
+        .config;
+    let manual_config = parser
+        .parse_content(manual_yaml.to_string(), "manual.yaml".to_string())
+        .unwrap()
+        .config;
 
     let merger = ConfigMerger::new();
     let result = merger.merge_configurations(&ui_config, &manual_config);
@@ -285,14 +338,25 @@ detectors:
     let merge_result = result.unwrap();
 
     // Coral detector should be preserved
-    assert!(merge_result.merged_config.detectors.contains_key("coral"), "Should preserve manual-only detector");
-    assert_eq!(merge_result.merged_config.detectors.len(), 2, "Should have both detectors");
+    assert!(
+        merge_result.merged_config.detectors.contains_key("coral"),
+        "Should preserve manual-only detector"
+    );
+    assert_eq!(
+        merge_result.merged_config.detectors.len(),
+        2,
+        "Should have both detectors"
+    );
 
     // Should have preserved edit for coral detector
-    let has_coral_preserved = merge_result.preserved_edits.iter().any(|e|
-        e.path.contains("coral")
+    let has_coral_preserved = merge_result
+        .preserved_edits
+        .iter()
+        .any(|e| e.path.contains("coral"));
+    assert!(
+        has_coral_preserved,
+        "Should track preserved manual-only detector"
     );
-    assert!(has_coral_preserved, "Should track preserved manual-only detector");
 }
 
 #[test]
@@ -343,8 +407,14 @@ detectors:
 "#;
 
     let parser = ConfigParser::new();
-    let ui_config = parser.parse_content(ui_yaml.to_string(), "ui.yaml".to_string()).unwrap().config;
-    let manual_config = parser.parse_content(manual_yaml.to_string(), "manual.yaml".to_string()).unwrap().config;
+    let ui_config = parser
+        .parse_content(ui_yaml.to_string(), "ui.yaml".to_string())
+        .unwrap()
+        .config;
+    let manual_config = parser
+        .parse_content(manual_yaml.to_string(), "manual.yaml".to_string())
+        .unwrap()
+        .config;
 
     let merger = ConfigMerger::new();
     let result = merger.merge_configurations(&ui_config, &manual_config);
@@ -353,9 +423,10 @@ detectors:
     let merge_result = result.unwrap();
 
     // Should detect conflict in mqtt section (different host)
-    let has_mqtt_conflict = merge_result.conflicts.iter().any(|c|
-        c.path.contains("mqtt")
-    );
+    let has_mqtt_conflict = merge_result
+        .conflicts
+        .iter()
+        .any(|c| c.path.contains("mqtt"));
     assert!(has_mqtt_conflict, "Should detect MQTT section conflict");
 }
 
@@ -399,8 +470,14 @@ detectors:
 "#;
 
     let parser = ConfigParser::new();
-    let ui_config = parser.parse_content(ui_yaml.to_string(), "ui.yaml".to_string()).unwrap().config;
-    let manual_config = parser.parse_content(manual_yaml.to_string(), "manual.yaml".to_string()).unwrap().config;
+    let ui_config = parser
+        .parse_content(ui_yaml.to_string(), "ui.yaml".to_string())
+        .unwrap()
+        .config;
+    let manual_config = parser
+        .parse_content(manual_yaml.to_string(), "manual.yaml".to_string())
+        .unwrap()
+        .config;
 
     let merger = ConfigMerger::new();
     let result = merger.merge_configurations(&ui_config, &manual_config);
@@ -409,17 +486,25 @@ detectors:
     let merge_result = result.unwrap();
 
     // Should detect enabled conflict at camera level
-    let enabled_conflicts: Vec<_> = merge_result.conflicts.iter()
+    let enabled_conflicts: Vec<_> = merge_result
+        .conflicts
+        .iter()
         .filter(|c| c.path.contains("enabled") || c.path.contains("detect"))
         .collect();
 
-    assert!(enabled_conflicts.len() > 0, "Should detect enabled or detect field conflict");
+    assert!(
+        enabled_conflicts.len() > 0,
+        "Should detect enabled or detect field conflict"
+    );
 
     // Critical fields should be marked as critical or warning severity
-    let has_critical_or_warning = enabled_conflicts.iter().any(|c|
+    let has_critical_or_warning = enabled_conflicts.iter().any(|c| {
         c.severity == ConflictSeverity::Critical || c.severity == ConflictSeverity::Warning
+    });
+    assert!(
+        has_critical_or_warning,
+        "Enabled/detect field conflicts should have high severity"
     );
-    assert!(has_critical_or_warning, "Enabled/detect field conflicts should have high severity");
 }
 
 #[test]
@@ -484,8 +569,14 @@ detectors:
 "#;
 
     let parser = ConfigParser::new();
-    let ui_config = parser.parse_content(ui_yaml.to_string(), "ui.yaml".to_string()).unwrap().config;
-    let manual_config = parser.parse_content(manual_yaml.to_string(), "manual.yaml".to_string()).unwrap().config;
+    let ui_config = parser
+        .parse_content(ui_yaml.to_string(), "ui.yaml".to_string())
+        .unwrap()
+        .config;
+    let manual_config = parser
+        .parse_content(manual_yaml.to_string(), "manual.yaml".to_string())
+        .unwrap()
+        .config;
 
     let merger = ConfigMerger::new();
     let result = merger.merge_configurations(&ui_config, &manual_config);
@@ -494,17 +585,25 @@ detectors:
     let merge_result = result.unwrap();
 
     // Should detect conflicts in both cameras
-    assert!(merge_result.conflicts.len() >= 1, "Should detect multiple conflicts");
+    assert!(
+        merge_result.conflicts.len() >= 1,
+        "Should detect multiple conflicts"
+    );
 
     // Check for front_door or backyard conflicts
-    let has_front_door_conflict = merge_result.conflicts.iter().any(|c|
-        c.path.contains("front_door")
-    );
-    let has_backyard_conflict = merge_result.conflicts.iter().any(|c|
-        c.path.contains("backyard")
-    );
+    let has_front_door_conflict = merge_result
+        .conflicts
+        .iter()
+        .any(|c| c.path.contains("front_door"));
+    let has_backyard_conflict = merge_result
+        .conflicts
+        .iter()
+        .any(|c| c.path.contains("backyard"));
 
-    assert!(has_front_door_conflict || has_backyard_conflict, "Should detect conflicts in at least one camera");
+    assert!(
+        has_front_door_conflict || has_backyard_conflict,
+        "Should detect conflicts in at least one camera"
+    );
 }
 
 #[test]
@@ -545,8 +644,14 @@ detectors:
 "#;
 
     let parser = ConfigParser::new();
-    let ui_config = parser.parse_content(ui_yaml.to_string(), "ui.yaml".to_string()).unwrap().config;
-    let manual_config = parser.parse_content(manual_yaml.to_string(), "manual.yaml".to_string()).unwrap().config;
+    let ui_config = parser
+        .parse_content(ui_yaml.to_string(), "ui.yaml".to_string())
+        .unwrap()
+        .config;
+    let manual_config = parser
+        .parse_content(manual_yaml.to_string(), "manual.yaml".to_string())
+        .unwrap()
+        .config;
 
     let merger = ConfigMerger::new();
     let result = merger.merge_configurations(&ui_config, &manual_config);
@@ -555,9 +660,10 @@ detectors:
     let merge_result = result.unwrap();
 
     // Should detect model conflict (yolov8n vs yolov8s)
-    let has_model_conflict = merge_result.conflicts.iter().any(|c|
-        c.path.contains("cpu1") && c.path.contains("model")
-    );
+    let has_model_conflict = merge_result
+        .conflicts
+        .iter()
+        .any(|c| c.path.contains("cpu1") && c.path.contains("model"));
     assert!(has_model_conflict, "Should detect detector model conflict");
 }
 
@@ -612,8 +718,14 @@ detectors:
 "#;
 
     let parser = ConfigParser::new();
-    let ui_config = parser.parse_content(ui_yaml.to_string(), "ui.yaml".to_string()).unwrap().config;
-    let manual_config = parser.parse_content(manual_yaml.to_string(), "manual.yaml".to_string()).unwrap().config;
+    let ui_config = parser
+        .parse_content(ui_yaml.to_string(), "ui.yaml".to_string())
+        .unwrap()
+        .config;
+    let manual_config = parser
+        .parse_content(manual_yaml.to_string(), "manual.yaml".to_string())
+        .unwrap()
+        .config;
 
     let merger = ConfigMerger::new();
     let result = merger.merge_configurations(&ui_config, &manual_config);
@@ -622,13 +734,28 @@ detectors:
     let merge_result = result.unwrap();
 
     // Verify statistics are populated
-    assert!(merge_result.statistics.total_fields > 0, "Should count total fields");
-    assert!(merge_result.statistics.conflicts_count > 0, "Should count conflicts");
-    assert!(merge_result.statistics.preserved_edits_count > 0, "Should count preserved edits");
+    assert!(
+        merge_result.statistics.total_fields > 0,
+        "Should count total fields"
+    );
+    assert!(
+        merge_result.statistics.conflicts_count > 0,
+        "Should count conflicts"
+    );
+    assert!(
+        merge_result.statistics.preserved_edits_count > 0,
+        "Should count preserved edits"
+    );
 
     // Verify consistency
-    assert_eq!(merge_result.statistics.conflicts_count, merge_result.conflicts.len());
-    assert_eq!(merge_result.statistics.preserved_edits_count, merge_result.preserved_edits.len());
+    assert_eq!(
+        merge_result.statistics.conflicts_count,
+        merge_result.conflicts.len()
+    );
+    assert_eq!(
+        merge_result.statistics.preserved_edits_count,
+        merge_result.preserved_edits.len()
+    );
 }
 
 #[test]
@@ -669,8 +796,14 @@ detectors:
 "#;
 
     let parser = ConfigParser::new();
-    let ui_config = parser.parse_content(ui_yaml.to_string(), "ui.yaml".to_string()).unwrap().config;
-    let manual_config = parser.parse_content(manual_yaml.to_string(), "manual.yaml".to_string()).unwrap().config;
+    let ui_config = parser
+        .parse_content(ui_yaml.to_string(), "ui.yaml".to_string())
+        .unwrap()
+        .config;
+    let manual_config = parser
+        .parse_content(manual_yaml.to_string(), "manual.yaml".to_string())
+        .unwrap()
+        .config;
 
     let merger = ConfigMerger::new();
     let result = merger.merge_configurations(&ui_config, &manual_config);
@@ -679,9 +812,22 @@ detectors:
     let merge_result = result.unwrap();
 
     // Merged config should have both cameras
-    assert_eq!(merge_result.merged_config.cameras.len(), 2, "Should have 2 cameras");
-    assert!(merge_result.merged_config.cameras.contains_key("front_door"), "Should have UI camera");
-    assert!(merge_result.merged_config.cameras.contains_key("backyard"), "Should have manual camera");
+    assert_eq!(
+        merge_result.merged_config.cameras.len(),
+        2,
+        "Should have 2 cameras"
+    );
+    assert!(
+        merge_result
+            .merged_config
+            .cameras
+            .contains_key("front_door"),
+        "Should have UI camera"
+    );
+    assert!(
+        merge_result.merged_config.cameras.contains_key("backyard"),
+        "Should have manual camera"
+    );
 }
 
 #[test]
@@ -726,8 +872,14 @@ detectors:
 "#;
 
     let parser = ConfigParser::new();
-    let ui_config = parser.parse_content(ui_yaml.to_string(), "ui.yaml".to_string()).unwrap().config;
-    let manual_config = parser.parse_content(manual_yaml.to_string(), "manual.yaml".to_string()).unwrap().config;
+    let ui_config = parser
+        .parse_content(ui_yaml.to_string(), "ui.yaml".to_string())
+        .unwrap()
+        .config;
+    let manual_config = parser
+        .parse_content(manual_yaml.to_string(), "manual.yaml".to_string())
+        .unwrap()
+        .config;
 
     let merger = ConfigMerger::new();
     let result = merger.merge_configurations(&ui_config, &manual_config);
@@ -736,15 +888,30 @@ detectors:
     let merge_result = result.unwrap();
 
     // Should have at least one conflict (enabled or detect)
-    assert!(merge_result.conflicts.len() > 0, "Should have at least one conflict");
+    assert!(
+        merge_result.conflicts.len() > 0,
+        "Should have at least one conflict"
+    );
 
     // Find a conflict related to the camera
-    let camera_conflict = merge_result.conflicts.iter().find(|c| c.path.contains("front_door"));
-    assert!(camera_conflict.is_some(), "Should have conflict for front_door camera");
+    let camera_conflict = merge_result
+        .conflicts
+        .iter()
+        .find(|c| c.path.contains("front_door"));
+    assert!(
+        camera_conflict.is_some(),
+        "Should have conflict for front_door camera"
+    );
 
     let conflict = camera_conflict.unwrap();
-    assert!(!conflict.description.is_empty(), "Conflict should have description");
-    assert!(conflict.path.contains("cameras.front_door"), "Path should include camera name");
+    assert!(
+        !conflict.description.is_empty(),
+        "Conflict should have description"
+    );
+    assert!(
+        conflict.path.contains("cameras.front_door"),
+        "Path should include camera name"
+    );
     assert!(conflict.ui_value.is_some(), "Should have UI value");
     assert!(conflict.manual_value.is_some(), "Should have manual value");
 }

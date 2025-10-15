@@ -4,16 +4,16 @@
 
 #[cfg(test)]
 mod test_deployment {
-    use std::path::PathBuf;
     use std::collections::HashMap;
+    use std::path::PathBuf;
     use std::time::Duration;
 
     // Import actual implementation
     use frigate_config_tool::deployment::executor::{
-        execute_deployment, get_deployment_status, stop_deployment, get_container_logs,
-        stream_container_logs, wait_for_container_ready, save_deployment_state,
-        load_deployment_state, generate_docker_run_command_from_request,
-        generate_docker_compose_config_from_request, DeploymentRequest, DeploymentResult,
+        execute_deployment, generate_docker_compose_config_from_request,
+        generate_docker_run_command_from_request, get_container_logs, get_deployment_status,
+        load_deployment_state, save_deployment_state, stop_deployment, stream_container_logs,
+        wait_for_container_ready, DeploymentRequest, DeploymentResult,
     };
     use frigate_config_tool::models::deployment_state::{
         DeploymentMethod, DeploymentState, DeploymentStatus,
@@ -43,18 +43,21 @@ cameras:
         std::fs::write(&temp_config, config_content).expect("Failed to write test config");
 
         // Use a random high port to avoid conflicts (50000-60000 range)
-        let random_port = 50000 + (std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_millis() % 10000) as u16;
+        let random_port = 50000
+            + (std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_millis()
+                % 10000) as u16;
 
         let request = DeploymentRequest {
             config_path: temp_config.clone(),
             method: DeploymentMethod::DockerRun,
             devices: vec![],
-            volumes: vec![
-                ("/tmp/frigate_test/config".to_string(), "/config".to_string()),
-            ],
+            volumes: vec![(
+                "/tmp/frigate_test/config".to_string(),
+                "/config".to_string(),
+            )],
             ports: vec![(random_port, 5000)],
             environment: HashMap::new(),
         };
@@ -65,8 +68,10 @@ cameras:
         // In CI, we can mock or skip based on Docker availability
         match &result {
             Ok(deployment) => {
-                eprintln!("Deployment result - success: {}, stdout: {}, stderr: {}",
-                    deployment.success, deployment.stdout, deployment.stderr);
+                eprintln!(
+                    "Deployment result - success: {}, stdout: {}, stderr: {}",
+                    deployment.success, deployment.stdout, deployment.stderr
+                );
                 if !deployment.success {
                     eprintln!("Command: {}", deployment.command);
                 }
@@ -79,7 +84,11 @@ cameras:
         assert!(result.is_ok(), "Deployment failed: {:?}", result.err());
 
         let deployment = result.unwrap();
-        assert!(deployment.success, "Deployment command failed. Stderr: {}", deployment.stderr);
+        assert!(
+            deployment.success,
+            "Deployment command failed. Stderr: {}",
+            deployment.stderr
+        );
         assert!(deployment.container_id.is_some());
         assert!(!deployment.command.is_empty());
 
@@ -102,18 +111,21 @@ cameras:
         std::fs::write(&temp_config, config_content).expect("Failed to write test config");
 
         // Use a random high port to avoid conflicts
-        let random_port = 51000 + (std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_millis() % 10000) as u16;
+        let random_port = 51000
+            + (std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_millis()
+                % 10000) as u16;
 
         let request = DeploymentRequest {
             config_path: temp_config,
             method: DeploymentMethod::DockerCompose,
             devices: vec![],
-            volumes: vec![
-                ("/tmp/frigate_test/config".to_string(), "/config".to_string()),
-            ],
+            volumes: vec![(
+                "/tmp/frigate_test/config".to_string(),
+                "/config".to_string(),
+            )],
             ports: vec![(random_port, 5000)],
             environment: HashMap::new(),
         };
@@ -138,9 +150,10 @@ cameras:
             devices: vec![
                 "/dev/dri/renderD128".to_string(), // Intel GPU
             ],
-            volumes: vec![
-                ("/tmp/frigate_test/config".to_string(), "/config".to_string()),
-            ],
+            volumes: vec![(
+                "/tmp/frigate_test/config".to_string(),
+                "/config".to_string(),
+            )],
             ports: vec![(5000, 5000)],
             environment: HashMap::new(),
         };
@@ -166,7 +179,10 @@ cameras:
     fn test_execute_deployment_with_environment_variables() {
         let mut env = HashMap::new();
         env.insert("TZ".to_string(), "America/New_York".to_string());
-        env.insert("FRIGATE_RTSP_PASSWORD".to_string(), "testpass123".to_string());
+        env.insert(
+            "FRIGATE_RTSP_PASSWORD".to_string(),
+            "testpass123".to_string(),
+        );
 
         let request = DeploymentRequest {
             config_path: PathBuf::from("tests/fixtures/valid_frigate.yml"),
@@ -274,7 +290,7 @@ cameras:
                 let status_value = status.unwrap();
                 assert!(
                     status_value == DeploymentStatus::Running
-                    || status_value == DeploymentStatus::Pending
+                        || status_value == DeploymentStatus::Pending
                 );
 
                 // Clean up
@@ -425,9 +441,7 @@ cameras:
             config_path: PathBuf::from("tests/fixtures/valid_frigate.yml"),
             method: DeploymentMethod::DockerRun,
             devices: vec![],
-            volumes: vec![
-                ("/config".to_string(), "/config".to_string()),
-            ],
+            volumes: vec![("/config".to_string(), "/config".to_string())],
             ports: vec![(5000, 5000)],
             environment: HashMap::new(),
         };
@@ -515,19 +529,22 @@ cameras:
         std::fs::write(&temp_config, config_content).expect("Failed to write test config");
 
         // Use a random high port to avoid conflicts
-        let random_port = 52000 + (std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_millis() % 10000) as u16;
+        let random_port = 52000
+            + (std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_millis()
+                % 10000) as u16;
 
         // 1. Create deployment request
         let request = DeploymentRequest {
             config_path: temp_config,
             method: DeploymentMethod::DockerRun,
             devices: vec![],
-            volumes: vec![
-                ("/tmp/frigate_test/config".to_string(), "/config".to_string()),
-            ],
+            volumes: vec![(
+                "/tmp/frigate_test/config".to_string(),
+                "/config".to_string(),
+            )],
             ports: vec![(random_port, 5000)],
             environment: HashMap::new(),
         };

@@ -262,11 +262,8 @@ mod tests {
         let file_path = temp_dir.path().join("test_file.txt");
         fs::write(&file_path, "test").unwrap();
 
-        let mapping = VolumeMapping::new(
-            file_path,
-            "/config".to_string(),
-            VolumeMappingType::Config,
-        );
+        let mapping =
+            VolumeMapping::new(file_path, "/config".to_string(), VolumeMappingType::Config);
 
         let result = mapping.validate();
         assert!(result.is_err());

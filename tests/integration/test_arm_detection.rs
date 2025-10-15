@@ -22,8 +22,8 @@ fn test_arm_detection_linux() {
     assert!(output.status.success(), "Agent command failed");
 
     // Parse JSON output
-    let json_output: Value = serde_json::from_slice(&output.stdout)
-        .expect("Failed to parse JSON output");
+    let json_output: Value =
+        serde_json::from_slice(&output.stdout).expect("Failed to parse JSON output");
 
     // Verify architecture is reported correctly
     if is_arm_architecture() {
@@ -33,7 +33,8 @@ fn test_arm_detection_linux() {
 
         if let Some(device_array) = devices.as_array() {
             for device in device_array {
-                let arch = device.get("architecture")
+                let arch = device
+                    .get("architecture")
                     .and_then(|a| a.as_str())
                     .expect("Device should have architecture field");
 
@@ -44,7 +45,8 @@ fn test_arm_detection_linux() {
                 );
 
                 // Verify platform is reported correctly
-                let platform = device.get("platform")
+                let platform = device
+                    .get("platform")
                     .and_then(|p| p.as_str())
                     .expect("Device should have platform field");
 
@@ -70,8 +72,8 @@ fn test_arm_detection_macos() {
     assert!(output.status.success(), "Agent command failed");
 
     // Parse JSON output
-    let json_output: Value = serde_json::from_slice(&output.stdout)
-        .expect("Failed to parse JSON output");
+    let json_output: Value =
+        serde_json::from_slice(&output.stdout).expect("Failed to parse JSON output");
 
     // Verify architecture is reported correctly
     if is_arm_architecture() {
@@ -81,14 +83,19 @@ fn test_arm_detection_macos() {
 
         if let Some(device_array) = devices.as_array() {
             for device in device_array {
-                let arch = device.get("architecture")
+                let arch = device
+                    .get("architecture")
                     .and_then(|a| a.as_str())
                     .expect("Device should have architecture field");
 
-                assert_eq!(arch, "arm64", "Architecture should be arm64 on Apple Silicon");
+                assert_eq!(
+                    arch, "arm64",
+                    "Architecture should be arm64 on Apple Silicon"
+                );
 
                 // Verify platform is reported correctly
-                let platform = device.get("platform")
+                let platform = device
+                    .get("platform")
                     .and_then(|p| p.as_str())
                     .expect("Device should have platform field");
 
@@ -97,7 +104,8 @@ fn test_arm_detection_macos() {
 
             // On Apple Silicon, we should detect Neural Engine
             let has_neural_engine = device_array.iter().any(|device| {
-                device.get("name")
+                device
+                    .get("name")
                     .and_then(|n| n.as_str())
                     .map(|n| n.contains("Neural Engine"))
                     .unwrap_or(false)
@@ -126,8 +134,8 @@ fn test_arm_detection_windows() {
     assert!(output.status.success(), "Agent command failed");
 
     // Parse JSON output
-    let json_output: Value = serde_json::from_slice(&output.stdout)
-        .expect("Failed to parse JSON output");
+    let json_output: Value =
+        serde_json::from_slice(&output.stdout).expect("Failed to parse JSON output");
 
     // Verify architecture is reported correctly
     if is_arm_architecture() {
@@ -137,14 +145,16 @@ fn test_arm_detection_windows() {
 
         if let Some(device_array) = devices.as_array() {
             for device in device_array {
-                let arch = device.get("architecture")
+                let arch = device
+                    .get("architecture")
                     .and_then(|a| a.as_str())
                     .expect("Device should have architecture field");
 
                 assert_eq!(arch, "arm64", "Architecture should be arm64 on ARM Windows");
 
                 // Verify platform is reported correctly
-                let platform = device.get("platform")
+                let platform = device
+                    .get("platform")
                     .and_then(|p| p.as_str())
                     .expect("Device should have platform field");
 
@@ -169,8 +179,8 @@ fn test_arm_specific_capabilities() {
     assert!(output.status.success(), "Agent command failed");
 
     // Parse JSON output
-    let json_output: Value = serde_json::from_slice(&output.stdout)
-        .expect("Failed to parse JSON output");
+    let json_output: Value =
+        serde_json::from_slice(&output.stdout).expect("Failed to parse JSON output");
 
     if is_arm_architecture() {
         let devices = json_output.get("devices").expect("No devices field");
@@ -178,12 +188,11 @@ fn test_arm_specific_capabilities() {
         if let Some(device_array) = devices.as_array() {
             // Check for ARM-specific capabilities
             for device in device_array {
-                let device_type = device.get("type")
-                    .and_then(|t| t.as_str())
-                    .unwrap_or("");
+                let device_type = device.get("type").and_then(|t| t.as_str()).unwrap_or("");
 
                 let empty_vec = vec![];
-                let capabilities = device.get("capabilities")
+                let capabilities = device
+                    .get("capabilities")
                     .and_then(|c| c.as_array())
                     .unwrap_or(&empty_vec);
 
@@ -208,9 +217,7 @@ fn test_arm_specific_capabilities() {
                         // Check for ARM-compatible TPUs
                         if cfg!(target_os = "macos") {
                             // Apple Neural Engine on M1/M2/M3
-                            let name = device.get("name")
-                                .and_then(|n| n.as_str())
-                                .unwrap_or("");
+                            let name = device.get("name").and_then(|n| n.as_str()).unwrap_or("");
 
                             if name.contains("Neural Engine") {
                                 let caps_str: Vec<String> = capabilities
@@ -219,8 +226,8 @@ fn test_arm_specific_capabilities() {
                                     .collect();
 
                                 assert!(
-                                    caps_str.contains(&"neural_engine".to_string()) ||
-                                    caps_str.contains(&"coreml".to_string()),
+                                    caps_str.contains(&"neural_engine".to_string())
+                                        || caps_str.contains(&"coreml".to_string()),
                                     "Neural Engine should have appropriate capabilities"
                                 );
                             }
@@ -252,8 +259,8 @@ fn test_arm_hardware_enumeration() {
 
         assert!(output.status.success(), "Agent command failed");
 
-        let json_output: Value = serde_json::from_slice(&output.stdout)
-            .expect("Failed to parse JSON output");
+        let json_output: Value =
+            serde_json::from_slice(&output.stdout).expect("Failed to parse JSON output");
 
         outputs.push(json_output);
     }
@@ -316,14 +323,15 @@ fn test_agent_architecture_reporting() {
     assert!(output.status.success(), "Agent command failed");
 
     // Parse JSON output
-    let json_output: Value = serde_json::from_slice(&output.stdout)
-        .expect("Failed to parse JSON output");
+    let json_output: Value =
+        serde_json::from_slice(&output.stdout).expect("Failed to parse JSON output");
 
     let devices = json_output.get("devices").expect("No devices field");
 
     if let Some(device_array) = devices.as_array() {
         for device in device_array {
-            let arch = device.get("architecture")
+            let arch = device
+                .get("architecture")
                 .and_then(|a| a.as_str())
                 .expect("Device should have architecture field");
 
@@ -335,11 +343,9 @@ fn test_agent_architecture_reporting() {
             let normalized_current = normalize_arch(current_arch);
 
             assert_eq!(
-                normalized_reported,
-                normalized_current,
+                normalized_reported, normalized_current,
                 "Reported architecture {} should match current system architecture {}",
-                arch,
-                current_arch
+                arch, current_arch
             );
         }
     }

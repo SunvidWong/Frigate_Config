@@ -2,9 +2,9 @@
 // T058: Backend configuration management commands
 
 use crate::config_engine::backup::*;
+use crate::config_engine::merger::ConflictSeverity;
 use crate::config_engine::merger::*;
 use crate::config_engine::parser::*;
-use crate::config_engine::merger::ConflictSeverity;
 use crate::error::AppError;
 use crate::models::configuration_snapshot::*;
 use crate::state::AppState;
@@ -18,12 +18,14 @@ use tracing::{info, warn};
 #[tauri::command]
 pub async fn load_config(
     file_path: String,
-    state: State<'_, Arc<Mutex<AppState>>>,
+    _state: State<'_, Arc<Mutex<AppState>>>,
 ) -> Result<ConfigurationData, AppError> {
     info!("Loading configuration from: {}", file_path);
 
     let parser = ConfigParser::new();
-    let parse_result = parser.parse_file(&file_path).await
+    let parse_result = parser
+        .parse_file(&file_path)
+        .await
         .map_err(|e| AppError::Config(format!("Failed to parse config: {}", e)))?;
 
     let config = ConfigurationData {
@@ -52,7 +54,7 @@ pub async fn load_config(
 #[tauri::command]
 pub async fn save_config(
     config_request: SaveConfigRequest,
-    state: State<'_, Arc<Mutex<AppState>>>,
+    _state: State<'_, Arc<Mutex<AppState>>>,
 ) -> Result<SaveConfigResponse, AppError> {
     info!("Saving configuration to: {}", config_request.file_path);
 
@@ -75,7 +77,10 @@ pub async fn save_config(
             tags: vec![],
         };
 
-        match snapshot_manager.create_snapshot(&parse_result.config, snapshot_options).await {
+        match snapshot_manager
+            .create_snapshot(&parse_result.config, snapshot_options)
+            .await
+        {
             Ok(snapshot) => {
                 info!("Created snapshot before saving: {}", snapshot.id);
             }
@@ -86,7 +91,8 @@ pub async fn save_config(
     }
 
     // Save the configuration
-    tokio::fs::write(&config_request.file_path, &config_request.content).await
+    tokio::fs::write(&config_request.file_path, &config_request.content)
+        .await
         .map_err(|e| AppError::Config(format!("Failed to save config: {}", e)))?;
 
     Ok(SaveConfigResponse {
@@ -102,7 +108,7 @@ pub async fn save_config(
 #[tauri::command]
 pub async fn merge_configurations(
     merge_request: MergeConfigurationsRequest,
-    state: State<'_, Arc<Mutex<AppState>>>,
+    _state: State<'_, Arc<Mutex<AppState>>>,
 ) -> Result<MergeResultResponse, AppError> {
     info!("Merging UI and manual configurations");
 
@@ -122,7 +128,8 @@ pub async fn merge_configurations(
     )?;
 
     // Merge configurations
-    let merge_result = merger.merge_configurations(&ui_parse_result.config, &manual_parse_result.config)?;
+    let merge_result =
+        merger.merge_configurations(&ui_parse_result.config, &manual_parse_result.config)?;
 
     // Convert to response format
     let response = MergeResultResponse {
@@ -134,29 +141,41 @@ pub async fn merge_configurations(
             detectors: merge_result.merged_config.detectors,
             global_config: merge_result.merged_config.global_config,
         },
-        conflicts: merge_result.conflicts.into_iter().map(|c| ConfigConflictResponse {
-            path: c.path,
-            conflict_type: format!("{:?}", c.conflict_type),
-            severity: format!("{:?}", c.severity),
-            description: c.description,
-            ui_value: c.ui_value,
-            manual_value: c.manual_value,
-            suggested_resolution: c.suggested_resolution.map(|r| ConflictResolutionResponse {
-                resolution_type: format!("{:?}", r.resolution_type),
-                description: r.description,
-                auto_applicable: r.auto_applicable,
-            }),
-        }).collect(),
-        preserved_edits: merge_result.preserved_edits.into_iter().map(|e| PreservedEditResponse {
-            path: e.path,
-            reason: e.reason,
-            line_number: e.line_number,
-        }).collect(),
-        warnings: merge_result.warnings.into_iter().map(|w| MergeWarningResponse {
-            message: w.message,
-            context: w.context,
-            suggested_action: w.suggested_action,
-        }).collect(),
+        conflicts: merge_result
+            .conflicts
+            .into_iter()
+            .map(|c| ConfigConflictResponse {
+                path: c.path,
+                conflict_type: format!("{:?}", c.conflict_type),
+                severity: format!("{:?}", c.severity),
+                description: c.description,
+                ui_value: c.ui_value,
+                manual_value: c.manual_value,
+                suggested_resolution: c.suggested_resolution.map(|r| ConflictResolutionResponse {
+                    resolution_type: format!("{:?}", r.resolution_type),
+                    description: r.description,
+                    auto_applicable: r.auto_applicable,
+                }),
+            })
+            .collect(),
+        preserved_edits: merge_result
+            .preserved_edits
+            .into_iter()
+            .map(|e| PreservedEditResponse {
+                path: e.path,
+                reason: e.reason,
+                line_number: e.line_number,
+            })
+            .collect(),
+        warnings: merge_result
+            .warnings
+            .into_iter()
+            .map(|w| MergeWarningResponse {
+                message: w.message,
+                context: w.context,
+                suggested_action: w.suggested_action,
+            })
+            .collect(),
         statistics: MergeStatisticsResponse {
             total_fields: merge_result.statistics.total_fields,
             conflicts_count: merge_result.statistics.conflicts_count,
@@ -173,7 +192,7 @@ pub async fn merge_configurations(
 #[tauri::command]
 pub async fn resolve_conflicts(
     resolve_request: ResolveConflictsRequest,
-    state: State<'_, Arc<Mutex<AppState>>>,
+    _state: State<'_, Arc<Mutex<AppState>>>,
 ) -> Result<ResolveConflictsResponse, AppError> {
     info!("Resolving configuration conflicts");
 
@@ -192,7 +211,8 @@ pub async fn resolve_conflicts(
     )?;
 
     // Merge with conflict resolution
-    let mut merge_result = merger.merge_configurations(&ui_parse_result.config, &manual_parse_result.config)?;
+    let mut merge_result =
+        merger.merge_configurations(&ui_parse_result.config, &manual_parse_result.config)?;
 
     // Apply resolutions
     let mut resolutions = std::collections::HashMap::new();
@@ -206,7 +226,10 @@ pub async fn resolve_conflicts(
                 "DeleteField" => ResolutionType::DeleteField,
                 _ => ResolutionType::ManualReview,
             },
-            suggested_value: resolution.suggested_value.as_ref().and_then(|v| serde_yaml::from_str(v).ok()),
+            suggested_value: resolution
+                .suggested_value
+                .as_ref()
+                .and_then(|v| serde_yaml::from_str(v).ok()),
             description: resolution.description.clone(),
             auto_applicable: resolution.auto_applicable,
         };
@@ -233,18 +256,19 @@ pub async fn resolve_conflicts(
 #[tauri::command]
 pub async fn create_snapshot(
     snapshot_request: CreateSnapshotRequest,
-    state: State<'_, Arc<Mutex<AppState>>>,
+    _state: State<'_, Arc<Mutex<AppState>>>,
 ) -> Result<CreateSnapshotResponse, AppError> {
-    info!("Creating configuration snapshot: {:?}", snapshot_request.description);
+    info!(
+        "Creating configuration snapshot: {:?}",
+        snapshot_request.description
+    );
 
     let snapshot_manager = SnapshotManager::default();
     let parser = ConfigParser::new();
 
     // Parse configuration
-    let parse_result = parser.parse_content(
-        snapshot_request.config_content,
-        snapshot_request.file_path,
-    )?;
+    let parse_result =
+        parser.parse_content(snapshot_request.config_content, snapshot_request.file_path)?;
 
     // Create snapshot options
     let snapshot_options = SnapshotOptions {
@@ -262,7 +286,9 @@ pub async fn create_snapshot(
     };
 
     // Create snapshot
-    let snapshot = snapshot_manager.create_snapshot(&parse_result.config, snapshot_options).await?;
+    let snapshot = snapshot_manager
+        .create_snapshot(&parse_result.config, snapshot_options)
+        .await?;
 
     Ok(CreateSnapshotResponse {
         success: true,
@@ -277,27 +303,30 @@ pub async fn create_snapshot(
 /// List configuration snapshots
 #[tauri::command]
 pub async fn list_snapshots(
-    state: State<'_, Arc<Mutex<AppState>>>,
+    _state: State<'_, Arc<Mutex<AppState>>>,
 ) -> Result<ListSnapshotsResponse, AppError> {
     info!("Listing configuration snapshots");
 
     let snapshot_manager = SnapshotManager::default();
     let snapshots = snapshot_manager.list_snapshots().await?;
 
-    let snapshot_responses: Vec<SnapshotResponse> = snapshots.iter().map(|s| SnapshotResponse {
-        id: s.id.clone(),
-        version: s.version,
-        created_at: s.created_at.clone(),
-        created_by: format!("{:?}", s.created_by),
-        description: s.description.clone(),
-        is_backup: s.is_backup,
-        backup_reason: s.backup_reason.clone(),
-        deployed: s.deployed,
-        deployed_at: s.deployed_at.clone(),
-        deployment_success: s.deployment_success,
-        checksum: s.checksum.clone(),
-        size_bytes: s.yaml_content.len(),
-    }).collect();
+    let snapshot_responses: Vec<SnapshotResponse> = snapshots
+        .iter()
+        .map(|s| SnapshotResponse {
+            id: s.id.clone(),
+            version: s.version,
+            created_at: s.created_at.clone(),
+            created_by: format!("{:?}", s.created_by),
+            description: s.description.clone(),
+            is_backup: s.is_backup,
+            backup_reason: s.backup_reason.clone(),
+            deployed: s.deployed,
+            deployed_at: s.deployed_at.clone(),
+            deployment_success: s.deployment_success,
+            checksum: s.checksum.clone(),
+            size_bytes: s.yaml_content.len(),
+        })
+        .collect();
 
     let total_count = snapshot_responses.len();
     Ok(ListSnapshotsResponse {
@@ -310,9 +339,12 @@ pub async fn list_snapshots(
 #[tauri::command]
 pub async fn restore_from_snapshot(
     restore_request: RestoreSnapshotRequest,
-    state: State<'_, Arc<Mutex<AppState>>>,
+    _state: State<'_, Arc<Mutex<AppState>>>,
 ) -> Result<RestoreSnapshotResponse, AppError> {
-    info!("Restoring configuration from snapshot: {}", restore_request.snapshot_id);
+    info!(
+        "Restoring configuration from snapshot: {}",
+        restore_request.snapshot_id
+    );
 
     let snapshot_manager = SnapshotManager::default();
 
@@ -325,16 +357,20 @@ pub async fn restore_from_snapshot(
     };
 
     // Restore from snapshot
-    let restore_result = snapshot_manager.restore_snapshot(
-        &restore_request.snapshot_id,
-        std::path::Path::new(&restore_request.target_path),
-        restore_options,
-    ).await?;
+    let restore_result = snapshot_manager
+        .restore_snapshot(
+            &restore_request.snapshot_id,
+            std::path::Path::new(&restore_request.target_path),
+            restore_options,
+        )
+        .await?;
 
     Ok(RestoreSnapshotResponse {
         success: restore_result.success,
         message: restore_result.message,
-        backup_path: restore_result.backup_path.map(|p| p.to_string_lossy().to_string()),
+        backup_path: restore_result
+            .backup_path
+            .map(|p| p.to_string_lossy().to_string()),
         changes_count: restore_result.changes_count,
         snapshot_id: restore_request.snapshot_id,
     })
@@ -344,7 +380,7 @@ pub async fn restore_from_snapshot(
 #[tauri::command]
 pub async fn delete_snapshot(
     snapshot_id: String,
-    state: State<'_, Arc<Mutex<AppState>>>,
+    _state: State<'_, Arc<Mutex<AppState>>>,
 ) -> Result<DeleteSnapshotResponse, AppError> {
     info!("Deleting configuration snapshot: {}", snapshot_id);
 
@@ -362,25 +398,34 @@ pub async fn delete_snapshot(
 #[tauri::command]
 pub async fn compare_snapshots(
     compare_request: CompareSnapshotsRequest,
-    state: State<'_, Arc<Mutex<AppState>>>,
+    _state: State<'_, Arc<Mutex<AppState>>>,
 ) -> Result<CompareSnapshotsResponse, AppError> {
-    info!("Comparing snapshots: {} and {}", compare_request.snapshot_a_id, compare_request.snapshot_b_id);
+    info!(
+        "Comparing snapshots: {} and {}",
+        compare_request.snapshot_a_id, compare_request.snapshot_b_id
+    );
 
     let snapshot_manager = SnapshotManager::default();
-    let comparison = snapshot_manager.compare_snapshots(
-        &compare_request.snapshot_a_id,
-        &compare_request.snapshot_b_id,
-    ).await?;
+    let comparison = snapshot_manager
+        .compare_snapshots(
+            &compare_request.snapshot_a_id,
+            &compare_request.snapshot_b_id,
+        )
+        .await?;
 
-    let differences_response: Vec<ConfigConflictResponse> = comparison.differences.into_iter().map(|d| ConfigConflictResponse {
-        path: d.path,
-        conflict_type: format!("{:?}", d.change_type),
-        severity: format!("{:?}", ConflictSeverity::Warning), // Default severity
-        description: d.description,
-        ui_value: d.value_a,
-        manual_value: d.value_b,
-        suggested_resolution: None,
-    }).collect();
+    let differences_response: Vec<ConfigConflictResponse> = comparison
+        .differences
+        .into_iter()
+        .map(|d| ConfigConflictResponse {
+            path: d.path,
+            conflict_type: format!("{:?}", d.change_type),
+            severity: format!("{:?}", ConflictSeverity::Warning), // Default severity
+            description: d.description,
+            ui_value: d.value_a,
+            manual_value: d.value_b,
+            suggested_resolution: None,
+        })
+        .collect();
 
     Ok(CompareSnapshotsResponse {
         identical: comparison.identical,
@@ -399,7 +444,7 @@ pub async fn compare_snapshots(
 /// Get snapshot statistics
 #[tauri::command]
 pub async fn get_snapshot_statistics(
-    state: State<'_, Arc<Mutex<AppState>>>,
+    _state: State<'_, Arc<Mutex<AppState>>>,
 ) -> Result<SnapshotStatisticsResponse, AppError> {
     info!("Getting snapshot statistics");
 
@@ -421,7 +466,7 @@ pub async fn get_snapshot_statistics(
 pub async fn validate_config(
     content: String,
     file_path: String,
-    state: State<'_, Arc<Mutex<AppState>>>,
+    _state: State<'_, Arc<Mutex<AppState>>>,
 ) -> Result<ValidationResponse, AppError> {
     info!("Validating configuration: {}", file_path);
 
@@ -430,16 +475,24 @@ pub async fn validate_config(
 
     Ok(ValidationResponse {
         valid: parse_result.errors.is_empty(),
-        errors: parse_result.errors.into_iter().map(|e| ValidationError {
-            message: e.message,
-            line_number: e.line_number,
-            error_type: format!("{:?}", e.error_type),
-        }).collect(),
-        warnings: parse_result.warnings.into_iter().map(|w| ValidationWarning {
-            message: w.message,
-            line_number: w.line_number,
-            suggestion: w.suggestion,
-        }).collect(),
+        errors: parse_result
+            .errors
+            .into_iter()
+            .map(|e| ValidationError {
+                message: e.message,
+                line_number: e.line_number,
+                error_type: format!("{:?}", e.error_type),
+            })
+            .collect(),
+        warnings: parse_result
+            .warnings
+            .into_iter()
+            .map(|w| ValidationWarning {
+                message: w.message,
+                line_number: w.line_number,
+                suggestion: w.suggestion,
+            })
+            .collect(),
         cameras_count: parse_result.config.cameras.len(),
         detectors_count: parse_result.config.detectors.len(),
     })

@@ -3,7 +3,9 @@
 // REQUIREMENT: FR-040, FR-041 (Deployment Module - Rollback functionality)
 
 use crate::deployment::executor::{execute_deployment, stop_deployment, DeploymentRequest};
-use crate::deployment::health::{check_container_health, HealthStatus, perform_comprehensive_health_check};
+use crate::deployment::health::{
+    check_container_health, perform_comprehensive_health_check, HealthStatus,
+};
 use crate::models::deployment_state::{DeploymentMethod, DeploymentState, DeploymentStatus};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -44,12 +46,7 @@ pub struct RollbackResult {
 }
 
 impl DeploymentSnapshot {
-    pub fn new(
-        id: String,
-        container_id: String,
-        config_path: PathBuf,
-        command: String,
-    ) -> Self {
+    pub fn new(id: String, container_id: String, config_path: PathBuf, command: String) -> Self {
         Self {
             id,
             container_id,
@@ -61,18 +58,14 @@ impl DeploymentSnapshot {
     }
 
     pub fn from_state(state: &DeploymentState, command: String) -> Option<Self> {
-        if let Some(container_id) = &state.container_id {
-            Some(Self {
-                id: state.id.clone(),
-                container_id: container_id.clone(),
-                config_path: PathBuf::from(&state.config_path),
-                deployment_time: state.start_time.unwrap_or(SystemTime::now()),
-                command,
-                status: state.status.clone(),
-            })
-        } else {
-            None
-        }
+        state.container_id.as_ref().map(|container_id| Self {
+            id: state.id.clone(),
+            container_id: container_id.clone(),
+            config_path: PathBuf::from(&state.config_path),
+            deployment_time: state.start_time.unwrap_or(SystemTime::now()),
+            command,
+            status: state.status.clone(),
+        })
     }
 }
 
@@ -113,8 +106,7 @@ pub fn save_deployment_snapshot(snapshot: &DeploymentSnapshot) -> Result<(), Str
     let json = serde_json::to_string_pretty(snapshot)
         .map_err(|e| format!("Failed to serialize snapshot: {}", e))?;
 
-    fs::write(&snapshot_file, json)
-        .map_err(|e| format!("Failed to write snapshot file: {}", e))?;
+    fs::write(&snapshot_file, json).map_err(|e| format!("Failed to write snapshot file: {}", e))?;
 
     Ok(())
 }
@@ -201,7 +193,10 @@ pub fn stop_current_deployment() -> Result<Option<String>, String> {
 pub fn restore_deployment(snapshot: &DeploymentSnapshot) -> Result<String, String> {
     // Validate config file exists
     if !snapshot.config_path.exists() {
-        return Err(format!("Configuration file not found: {:?}", snapshot.config_path));
+        return Err(format!(
+            "Configuration file not found: {:?}",
+            snapshot.config_path
+        ));
     }
 
     // Parse the original command to reconstruct deployment request
@@ -222,7 +217,9 @@ pub fn restore_deployment(snapshot: &DeploymentSnapshot) -> Result<String, Strin
         return Err(format!("Deployment failed: {}", result.stderr));
     }
 
-    result.container_id.ok_or_else(|| "No container ID returned".to_string())
+    result
+        .container_id
+        .ok_or_else(|| "No container ID returned".to_string())
 }
 
 /// Verify that a rollback was successful
@@ -253,7 +250,7 @@ pub fn execute_rollback(request: &RollbackRequest) -> Result<RollbackResult, Str
             Ok(None) => {
                 result.add_error(format!("Snapshot not found: {}", snapshot_id));
                 return Ok(result);
-            },
+            }
             Err(e) => {
                 result.add_error(format!("Failed to load snapshot: {}", e));
                 return Ok(result);
@@ -266,7 +263,7 @@ pub fn execute_rollback(request: &RollbackRequest) -> Result<RollbackResult, Str
             Ok(None) => {
                 result.add_error("No previous deployment found".to_string());
                 return Ok(result);
-            },
+            }
             Err(e) => {
                 result.add_error(format!("Failed to load previous deployment: {}", e));
                 return Ok(result);
@@ -288,10 +285,10 @@ pub fn execute_rollback(request: &RollbackRequest) -> Result<RollbackResult, Str
     match stop_current_deployment() {
         Ok(Some(container_id)) => {
             result.previous_container_id = Some(container_id);
-        },
+        }
         Ok(None) => {
             // No current deployment to stop
-        },
+        }
         Err(e) => {
             result.add_error(format!("Failed to stop current deployment: {}", e));
             return Ok(result);
@@ -307,15 +304,17 @@ pub fn execute_rollback(request: &RollbackRequest) -> Result<RollbackResult, Str
             match verify_rollback_success(&container_id) {
                 Ok(true) => {
                     result.success = true;
-                },
+                }
                 Ok(false) => {
-                    result.add_error("Rollback verification failed: container not healthy".to_string());
-                },
+                    result.add_error(
+                        "Rollback verification failed: container not healthy".to_string(),
+                    );
+                }
                 Err(e) => {
                     result.add_error(format!("Rollback verification failed: {}", e));
                 }
             }
-        },
+        }
         Err(e) => {
             result.add_error(format!("Failed to restore deployment: {}", e));
         }
@@ -327,12 +326,17 @@ pub fn execute_rollback(request: &RollbackRequest) -> Result<RollbackResult, Str
 // ========== Automatic Rollback (T118) ==========
 
 /// Automatically rollback on health check failure
-pub fn automatic_rollback_on_health_failure(current_container_id: &str) -> Result<RollbackResult, String> {
+pub fn automatic_rollback_on_health_failure(
+    current_container_id: &str,
+) -> Result<RollbackResult, String> {
     // Check if current deployment is unhealthy
     let health = perform_comprehensive_health_check(current_container_id)?;
 
     if health.status != HealthStatus::Unhealthy {
-        return Err(format!("Current deployment is not unhealthy, status: {:?}", health.status));
+        return Err(format!(
+            "Current deployment is not unhealthy, status: {:?}",
+            health.status
+        ));
     }
 
     // Check if there's a previous deployment to rollback to

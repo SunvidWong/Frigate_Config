@@ -8,11 +8,11 @@ mod test_deployment_validation {
 
     // Import actual implementation
     use frigate_config_tool::deployment::validator::{
-        ValidationResult, ValidationError, ValidationWarning, DeploymentConfig,
-        validate_yaml_syntax, validate_yaml_schema, validate_frigate_config,
         check_docker_availability, check_docker_compose_availability, check_docker_permissions,
-        validate_device_paths, validate_port_availability, validate_volume_paths,
-        validate_deployment_config,
+        validate_deployment_config, validate_device_paths, validate_frigate_config,
+        validate_port_availability, validate_volume_paths, validate_yaml_schema,
+        validate_yaml_syntax, DeploymentConfig, ValidationError, ValidationResult,
+        ValidationWarning,
     };
 
     // ========== YAML Validation Tests ==========
@@ -64,7 +64,9 @@ mod test_deployment_validation {
         let result = validate_frigate_config(&yaml_path);
         assert!(result.is_err());
         let errors = result.unwrap_err();
-        assert!(errors.iter().any(|e| e.contains("camera") || e.contains("inputs")));
+        assert!(errors
+            .iter()
+            .any(|e| e.contains("camera") || e.contains("inputs")));
     }
 
     // ========== Docker Availability Tests ==========
@@ -209,10 +211,7 @@ mod test_deployment_validation {
 
     #[test]
     fn test_validate_volume_paths_mixed_valid_invalid() {
-        let paths = vec![
-            PathBuf::from("/tmp"),
-            PathBuf::from("/nonexistent123"),
-        ];
+        let paths = vec![PathBuf::from("/tmp"), PathBuf::from("/nonexistent123")];
         let result = validate_volume_paths(&paths);
         assert!(result.is_err());
         let errors = result.unwrap_err();
@@ -250,10 +249,21 @@ mod test_deployment_validation {
         assert!(!result.errors.is_empty());
 
         // Should have errors for YAML, device, port, and volume
-        assert!(result.errors.iter().any(|e| e.category.contains("yaml") || e.category.contains("YAML")));
-        assert!(result.errors.iter().any(|e| e.category.contains("Device") || e.category.contains("device")));
-        assert!(result.errors.iter().any(|e| e.category.contains("Port") || e.category.contains("port")));
-        assert!(result.errors.iter().any(|e| e.category.contains("Volume") || e.category.contains("volume") || e.category.contains("path")));
+        assert!(result
+            .errors
+            .iter()
+            .any(|e| e.category.contains("yaml") || e.category.contains("YAML")));
+        assert!(result
+            .errors
+            .iter()
+            .any(|e| e.category.contains("Device") || e.category.contains("device")));
+        assert!(result
+            .errors
+            .iter()
+            .any(|e| e.category.contains("Port") || e.category.contains("port")));
+        assert!(result.errors.iter().any(|e| e.category.contains("Volume")
+            || e.category.contains("volume")
+            || e.category.contains("path")));
     }
 
     #[test]
@@ -271,7 +281,10 @@ mod test_deployment_validation {
         assert!(!result.warnings.is_empty());
 
         // Should warn about CPU-only mode
-        assert!(result.warnings.iter().any(|w| w.message.contains("CPU") || w.message.contains("hardware")));
+        assert!(result
+            .warnings
+            .iter()
+            .any(|w| w.message.contains("CPU") || w.message.contains("hardware")));
     }
 
     #[test]
@@ -291,7 +304,11 @@ mod test_deployment_validation {
             // At least some errors should have fix suggestions
             if error.category.contains("yaml") || error.category.contains("config") {
                 // Config errors should suggest fixes
-                assert!(error.fix_suggestion.is_some() || error.message.contains("Add") || error.message.contains("Configure"));
+                assert!(
+                    error.fix_suggestion.is_some()
+                        || error.message.contains("Add")
+                        || error.message.contains("Configure")
+                );
             }
         }
     }
@@ -314,7 +331,11 @@ mod test_deployment_validation {
         let duration = start.elapsed();
 
         // Validation should complete within 5 seconds (FR-019 requirement adapted)
-        assert!(duration.as_secs() < 5, "Validation took too long: {:?}", duration);
+        assert!(
+            duration.as_secs() < 5,
+            "Validation took too long: {:?}",
+            duration
+        );
     }
 
     // ========== Edge Cases ==========

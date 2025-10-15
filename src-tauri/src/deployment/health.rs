@@ -2,10 +2,10 @@
 // Monitors container health, Frigate API, and implements retry with exponential backoff
 // REQUIREMENT: FR-039 (Deployment Module - Health checks after deployment)
 
+use serde::{Deserialize, Serialize};
 use std::net::TcpStream;
 use std::process::Command;
 use std::time::{Duration, Instant, SystemTime};
-use serde::{Deserialize, Serialize};
 
 /// Health status of a deployment
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -54,7 +54,13 @@ impl HealthCheckResult {
         }
     }
 
-    pub fn add_check(&mut self, name: String, passed: bool, message: String, details: Option<String>) {
+    pub fn add_check(
+        &mut self,
+        name: String,
+        passed: bool,
+        message: String,
+        details: Option<String>,
+    ) {
         self.checks.push(HealthCheck {
             name,
             passed,
@@ -69,7 +75,12 @@ impl HealthCheckResult {
 /// Check the health status of a Docker container
 pub fn check_container_health(container_id: &str) -> Result<HealthStatus, String> {
     let output = Command::new("docker")
-        .args(&["inspect", "--format", "{{.State.Health.Status}}", container_id])
+        .args([
+            "inspect",
+            "--format",
+            "{{.State.Health.Status}}",
+            container_id,
+        ])
         .output()
         .map_err(|e| format!("Failed to inspect container: {}", e))?;
 
@@ -99,7 +110,7 @@ pub fn check_container_health(container_id: &str) -> Result<HealthStatus, String
                     HealthStatus::Unknown
                 }
             })
-        },
+        }
         _ => Ok(HealthStatus::Unknown),
     }
 }
@@ -107,7 +118,7 @@ pub fn check_container_health(container_id: &str) -> Result<HealthStatus, String
 /// Check if a container is currently running
 pub fn check_container_running(container_id: &str) -> Result<bool, String> {
     let output = Command::new("docker")
-        .args(&["inspect", "--format", "{{.State.Running}}", container_id])
+        .args(["inspect", "--format", "{{.State.Running}}", container_id])
         .output()
         .map_err(|e| format!("Failed to check container status: {}", e))?;
 
@@ -133,8 +144,10 @@ pub fn check_port_responding(host: &str, port: u16, timeout: Duration) -> Result
     let start = Instant::now();
 
     match TcpStream::connect_timeout(
-        &addr.parse().map_err(|e| format!("Invalid address: {}", e))?,
-        timeout
+        &addr
+            .parse()
+            .map_err(|e| format!("Invalid address: {}", e))?,
+        timeout,
     ) {
         Ok(_) => {
             let elapsed = start.elapsed();
@@ -143,7 +156,7 @@ pub fn check_port_responding(host: &str, port: u16, timeout: Duration) -> Result
             } else {
                 Ok(true)
             }
-        },
+        }
         Err(_) => Ok(false),
     }
 }
@@ -156,13 +169,17 @@ pub fn check_frigate_api(endpoint: &str) -> Result<HealthCheckResult, String> {
 
     // Try to make HTTP request (using curl for now)
     let output = Command::new("curl")
-        .args(&[
+        .args([
             "-s",
-            "-o", "/dev/null",
-            "-w", "%{http_code}",
-            "--connect-timeout", "5",
-            "--max-time", "10",
-            endpoint
+            "-o",
+            "/dev/null",
+            "-w",
+            "%{http_code}",
+            "--connect-timeout",
+            "5",
+            "--max-time",
+            "10",
+            endpoint,
         ])
         .output()
         .map_err(|e| format!("Failed to check API: {}", e))?;
@@ -176,13 +193,11 @@ pub fn check_frigate_api(endpoint: &str) -> Result<HealthCheckResult, String> {
         return Err("Failed to connect to API endpoint".to_string());
     }
 
-    let mut result = HealthCheckResult::new(
-        if status_code == 200 {
-            HealthStatus::Healthy
-        } else {
-            HealthStatus::Unknown
-        }
-    );
+    let mut result = HealthCheckResult::new(if status_code == 200 {
+        HealthStatus::Healthy
+    } else {
+        HealthStatus::Unknown
+    });
 
     result.response_time_ms = elapsed.as_millis() as u64;
     result.add_check(
@@ -196,7 +211,9 @@ pub fn check_frigate_api(endpoint: &str) -> Result<HealthCheckResult, String> {
 }
 
 /// Check Frigate API with retry logic and exponential backoff (T115)
-pub fn check_frigate_api_with_retry(config: &HealthCheckConfig) -> Result<HealthCheckResult, String> {
+pub fn check_frigate_api_with_retry(
+    config: &HealthCheckConfig,
+) -> Result<HealthCheckResult, String> {
     let mut last_error = String::new();
     let mut retry_delay = config.retry_delay;
 
@@ -204,7 +221,7 @@ pub fn check_frigate_api_with_retry(config: &HealthCheckConfig) -> Result<Health
         if attempt > 0 {
             std::thread::sleep(retry_delay);
             // Exponential backoff: double the delay each time
-            retry_delay = retry_delay * 2;
+            retry_delay *= 2;
         }
 
         match check_frigate_api(&config.endpoint_url) {
@@ -212,26 +229,32 @@ pub fn check_frigate_api_with_retry(config: &HealthCheckConfig) -> Result<Health
                 if result.status == HealthStatus::Healthy {
                     return Ok(result);
                 }
-                last_error = format!("API returned unhealthy status");
-            },
+                last_error = "API returned unhealthy status".to_string();
+            }
             Err(e) => {
                 last_error = e;
             }
         }
     }
 
-    Err(format!("API check failed after {} retry attempts (timeout): {}", config.retry_count, last_error))
+    Err(format!(
+        "API check failed after {} retry attempts (timeout): {}",
+        config.retry_count, last_error
+    ))
 }
 
 /// Check if Frigate config is loaded
 pub fn check_frigate_config_loaded(endpoint: &str) -> Result<bool, String> {
     let output = Command::new("curl")
-        .args(&[
+        .args([
             "-s",
-            "-o", "/dev/null",
-            "-w", "%{http_code}",
-            "--connect-timeout", "5",
-            endpoint
+            "-o",
+            "/dev/null",
+            "-w",
+            "%{http_code}",
+            "--connect-timeout",
+            "5",
+            endpoint,
         ])
         .output()
         .map_err(|e| format!("Failed to check config endpoint: {}", e))?;
@@ -245,7 +268,7 @@ pub fn check_cameras_initialized(endpoint: &str) -> Result<Vec<String>, String> 
     // For now, return empty vec - would need JSON parsing in real implementation
     // This would call /api/config and parse the cameras section
     let _output = Command::new("curl")
-        .args(&["-s", endpoint])
+        .args(["-s", endpoint])
         .output()
         .map_err(|e| format!("Failed to check cameras: {}", e))?;
 
@@ -274,7 +297,7 @@ pub fn wait_for_healthy(
             Ok(_) => {
                 // Starting or Unknown - keep waiting
                 std::thread::sleep(check_interval);
-            },
+            }
             Err(e) => {
                 // Error checking health - might be transient
                 if start.elapsed() >= timeout {
@@ -302,7 +325,7 @@ pub fn perform_comprehensive_health_check(container_id: &str) -> Result<HealthCh
                 "Container is running".to_string(),
                 None,
             );
-        },
+        }
         Ok(false) => {
             result.status = HealthStatus::Unhealthy;
             result.add_check(
@@ -313,7 +336,7 @@ pub fn perform_comprehensive_health_check(container_id: &str) -> Result<HealthCh
             );
             result.response_time_ms = start.elapsed().as_millis() as u64;
             return Ok(result);
-        },
+        }
         Err(e) => {
             result.status = HealthStatus::Unknown;
             result.add_check(
@@ -338,7 +361,7 @@ pub fn perform_comprehensive_health_check(container_id: &str) -> Result<HealthCh
                 format!("Health status: {:?}", health_status),
                 None,
             );
-        },
+        }
         Err(e) => {
             result.add_check(
                 "container health".to_string(),
@@ -358,7 +381,7 @@ pub fn perform_comprehensive_health_check(container_id: &str) -> Result<HealthCh
                 "Port is responding".to_string(),
                 None,
             );
-        },
+        }
         Ok(false) => {
             result.add_check(
                 "port 5000".to_string(),
@@ -366,7 +389,7 @@ pub fn perform_comprehensive_health_check(container_id: &str) -> Result<HealthCh
                 "Port is not responding".to_string(),
                 None,
             );
-        },
+        }
         Err(e) => {
             result.add_check(
                 "port 5000".to_string(),
@@ -387,7 +410,7 @@ pub fn perform_comprehensive_health_check(container_id: &str) -> Result<HealthCh
                 format!("API status: {:?}", api_result.status),
                 Some(format!("Response time: {}ms", api_result.response_time_ms)),
             );
-        },
+        }
         Err(e) => {
             result.add_check(
                 "frigate api".to_string(),
@@ -426,12 +449,7 @@ mod tests {
         assert_eq!(result.status, HealthStatus::Starting);
         assert_eq!(result.checks.len(), 0);
 
-        result.add_check(
-            "Test".to_string(),
-            true,
-            "Test passed".to_string(),
-            None,
-        );
+        result.add_check("Test".to_string(), true, "Test passed".to_string(), None);
 
         assert_eq!(result.checks.len(), 1);
         assert!(result.checks[0].passed);

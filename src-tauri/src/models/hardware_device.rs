@@ -164,21 +164,15 @@ mod tests {
 
     #[test]
     fn test_device_type_enum_serialization() {
-        assert_eq!(
-            serde_json::to_string(&DeviceType::Gpu).unwrap(),
-            "\"gpu\""
-        );
-        assert_eq!(
-            serde_json::to_string(&DeviceType::Tpu).unwrap(),
-            "\"tpu\""
-        );
+        assert_eq!(serde_json::to_string(&DeviceType::Gpu).unwrap(), "\"gpu\"");
+        assert_eq!(serde_json::to_string(&DeviceType::Tpu).unwrap(), "\"tpu\"");
         assert_eq!(
             serde_json::to_string(&DeviceType::Camera).unwrap(),
             "\"camera\""
         );
         assert_eq!(
             serde_json::to_string(&DeviceType::CaptureCard).unwrap(),
-            "\"capturecard\""  // lowercase renaming converts CaptureCard -> capturecard
+            "\"capturecard\"" // lowercase renaming converts CaptureCard -> capturecard
         );
     }
 

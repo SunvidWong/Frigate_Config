@@ -2,11 +2,11 @@
 // Validates YAML, Docker availability, device paths, ports, and volumes
 // REQUIREMENT: FR-033, FR-034, FR-035, FR-036 (Deployment Module - Pre-deployment validation)
 
+use serde::{Deserialize, Serialize};
 use std::fs;
 use std::net::TcpListener;
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use serde::{Deserialize, Serialize};
 
 /// Validation result structure
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -75,16 +75,19 @@ impl Default for ValidationResult {
 pub fn validate_yaml_syntax(yaml_path: &PathBuf) -> Result<(), String> {
     // Check file exists
     if !yaml_path.exists() {
-        return Err(format!("Configuration file not found: {}", yaml_path.display()));
+        return Err(format!(
+            "Configuration file not found: {}",
+            yaml_path.display()
+        ));
     }
 
     // Read file content
-    let content = fs::read_to_string(yaml_path)
-        .map_err(|e| format!("Failed to read YAML file: {}", e))?;
+    let content =
+        fs::read_to_string(yaml_path).map_err(|e| format!("Failed to read YAML file: {}", e))?;
 
     // Parse as YAML to check syntax
-    let _: serde_yaml::Value = serde_yaml::from_str(&content)
-        .map_err(|e| format!("YAML syntax error: {}", e))?;
+    let _: serde_yaml::Value =
+        serde_yaml::from_str(&content).map_err(|e| format!("YAML syntax error: {}", e))?;
 
     Ok(())
 }
@@ -94,8 +97,8 @@ pub fn validate_yaml_schema(yaml_path: &PathBuf) -> Result<(), Vec<String>> {
     let content = fs::read_to_string(yaml_path)
         .map_err(|e| vec![format!("Failed to read YAML file: {}", e)])?;
 
-    let yaml: serde_yaml::Value = serde_yaml::from_str(&content)
-        .map_err(|e| vec![format!("YAML syntax error: {}", e)])?;
+    let yaml: serde_yaml::Value =
+        serde_yaml::from_str(&content).map_err(|e| vec![format!("YAML syntax error: {}", e)])?;
 
     let mut errors = Vec::new();
 
@@ -108,7 +111,7 @@ pub fn validate_yaml_schema(yaml_path: &PathBuf) -> Result<(), Vec<String>> {
     let map = yaml.as_mapping().unwrap();
 
     // Check for cameras section (not strictly required but warn if missing)
-    if !map.contains_key(&serde_yaml::Value::String("cameras".to_string())) {
+    if !map.contains_key(serde_yaml::Value::String("cameras".to_string())) {
         errors.push("Missing required 'cameras' section in Frigate configuration".to_string());
     }
 
@@ -124,21 +127,25 @@ pub fn validate_frigate_config(yaml_path: &PathBuf) -> Result<(), Vec<String>> {
     let content = fs::read_to_string(yaml_path)
         .map_err(|e| vec![format!("Failed to read YAML file: {}", e)])?;
 
-    let yaml: serde_yaml::Value = serde_yaml::from_str(&content)
-        .map_err(|e| vec![format!("YAML syntax error: {}", e)])?;
+    let yaml: serde_yaml::Value =
+        serde_yaml::from_str(&content).map_err(|e| vec![format!("YAML syntax error: {}", e)])?;
 
     let mut errors = Vec::new();
 
     if let Some(map) = yaml.as_mapping() {
         // Check cameras configuration
-        if let Some(cameras) = map.get(&serde_yaml::Value::String("cameras".to_string())) {
+        if let Some(cameras) = map.get(serde_yaml::Value::String("cameras".to_string())) {
             if let Some(camera_map) = cameras.as_mapping() {
                 for (camera_name, camera_config) in camera_map {
                     // Check if camera has inputs
                     if let Some(config_map) = camera_config.as_mapping() {
-                        if let Some(ffmpeg) = config_map.get(&serde_yaml::Value::String("ffmpeg".to_string())) {
+                        if let Some(ffmpeg) =
+                            config_map.get(serde_yaml::Value::String("ffmpeg".to_string()))
+                        {
                             if let Some(ffmpeg_map) = ffmpeg.as_mapping() {
-                                if !ffmpeg_map.contains_key(&serde_yaml::Value::String("inputs".to_string())) {
+                                if !ffmpeg_map
+                                    .contains_key(serde_yaml::Value::String("inputs".to_string()))
+                                {
                                     errors.push(format!(
                                         "Camera '{}' is missing 'ffmpeg.inputs' configuration",
                                         camera_name.as_str().unwrap_or("unknown")
@@ -164,7 +171,7 @@ pub fn validate_frigate_config(yaml_path: &PathBuf) -> Result<(), Vec<String>> {
 /// Check if Docker is available and return version
 pub fn check_docker_availability() -> Result<String, String> {
     let output = Command::new("docker")
-        .args(&["--version"])
+        .args(["--version"])
         .output()
         .map_err(|e| format!("Docker not found or not installed: {}", e))?;
 
@@ -188,9 +195,7 @@ pub fn check_docker_availability() -> Result<String, String> {
 /// Check if Docker Compose is available and return version
 pub fn check_docker_compose_availability() -> Result<String, String> {
     // Try docker-compose first
-    let output = Command::new("docker-compose")
-        .args(&["--version"])
-        .output();
+    let output = Command::new("docker-compose").args(["--version"]).output();
 
     if let Ok(out) = output {
         if out.status.success() {
@@ -207,7 +212,7 @@ pub fn check_docker_compose_availability() -> Result<String, String> {
 
     // Try docker compose (V2 syntax)
     let output = Command::new("docker")
-        .args(&["compose", "version"])
+        .args(["compose", "version"])
         .output()
         .map_err(|e| format!("Docker Compose not found: {}", e))?;
 
@@ -228,14 +233,17 @@ pub fn check_docker_compose_availability() -> Result<String, String> {
 /// Check if Docker can be run without sudo (user permissions)
 pub fn check_docker_permissions() -> Result<(), String> {
     let output = Command::new("docker")
-        .args(&["ps"])
+        .args(["ps"])
         .output()
         .map_err(|e| format!("Failed to check Docker permissions: {}", e))?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
         if stderr.contains("permission denied") || stderr.contains("denied") {
-            return Err("Docker requires sudo. User is not in docker group or doesn't have permissions".to_string());
+            return Err(
+                "Docker requires sudo. User is not in docker group or doesn't have permissions"
+                    .to_string(),
+            );
         }
         return Err(format!("Docker ps command failed: {}", stderr));
     }
@@ -375,7 +383,9 @@ pub fn validate_deployment_config(config: &DeploymentConfig) -> ValidationResult
             result.add_error(
                 "YAML Schema".to_string(),
                 error.clone(),
-                Some("Add the required 'cameras' section to your Frigate configuration.".to_string()),
+                Some(
+                    "Add the required 'cameras' section to your Frigate configuration.".to_string(),
+                ),
             );
         }
     }
@@ -423,7 +433,10 @@ pub fn validate_deployment_config(config: &DeploymentConfig) -> ValidationResult
                 result.add_error(
                     "Port".to_string(),
                     format!("Port {} is already in use or not accessible", port),
-                    Some(format!("Stop the service using port {} or choose a different port.", port)),
+                    Some(format!(
+                        "Stop the service using port {} or choose a different port.",
+                        port
+                    )),
                 );
             }
         }

@@ -60,12 +60,7 @@ pub struct ConfigurationSnapshot {
 
 impl ConfigurationSnapshot {
     /// Create a new configuration snapshot
-    pub fn new(
-        id: String,
-        version: i32,
-        yaml_content: String,
-        created_by: CreationSource,
-    ) -> Self {
+    pub fn new(id: String, version: i32, yaml_content: String, created_by: CreationSource) -> Self {
         let checksum = Self::calculate_checksum(&yaml_content);
 
         Self {

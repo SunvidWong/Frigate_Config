@@ -105,9 +105,12 @@ impl DiscoveredCamera {
             if RTSP_PORTS.contains(port) {
                 self.rtsp_urls.push(format!("rtsp://{}:{}/", self.ip, port));
                 // Common RTSP paths
-                self.rtsp_urls.push(format!("rtsp://{}:{}/stream1", self.ip, port));
-                self.rtsp_urls.push(format!("rtsp://{}:{}/live/main", self.ip, port));
-                self.rtsp_urls.push(format!("rtsp://{}:{}/h264", self.ip, port));
+                self.rtsp_urls
+                    .push(format!("rtsp://{}:{}/stream1", self.ip, port));
+                self.rtsp_urls
+                    .push(format!("rtsp://{}:{}/live/main", self.ip, port));
+                self.rtsp_urls
+                    .push(format!("rtsp://{}:{}/h264", self.ip, port));
             }
         }
 
@@ -135,10 +138,8 @@ pub fn parse_network_range(range: &str) -> Result<Vec<IpAddr>, String> {
             return Err("Prefix length must be <= 32".to_string());
         }
 
-        let base_octets: Result<Vec<u8>, _> = network_parts
-            .iter()
-            .map(|s| s.parse::<u8>())
-            .collect();
+        let base_octets: Result<Vec<u8>, _> =
+            network_parts.iter().map(|s| s.parse::<u8>()).collect();
 
         let base_octets = base_octets.map_err(|_| "Invalid IP address")?;
 
@@ -147,7 +148,8 @@ pub fn parse_network_range(range: &str) -> Result<Vec<IpAddr>, String> {
         let num_hosts = 2u32.pow(host_bits as u32);
 
         // Generate IP addresses in the range
-        for i in 1..num_hosts - 1 {  // Skip network and broadcast
+        for i in 1..num_hosts - 1 {
+            // Skip network and broadcast
             let ip = IpAddr::from([
                 base_octets[0],
                 base_octets[1],
@@ -216,9 +218,7 @@ pub async fn scan_network(config: ScanConfig) -> Result<Vec<DiscoveredCamera>, S
         let ports = config.ports.clone();
         let timeout = config.timeout_ms;
 
-        let task = tokio::spawn(async move {
-            scan_ip(ip, &ports, timeout).await
-        });
+        let task = tokio::spawn(async move { scan_ip(ip, &ports, timeout).await });
 
         tasks.push(task);
 
@@ -260,13 +260,14 @@ pub fn get_local_ip() -> Option<String> {
 
             // Skip known virtual interface names
             let name = iface.name.to_lowercase();
-            if name.contains("docker") ||
-               name.contains("vbox") ||
-               name.contains("vmware") ||
-               name.contains("veth") ||
-               name.contains("virbr") ||
-               name.contains("tun") ||
-               name.contains("tap") {
+            if name.contains("docker")
+                || name.contains("vbox")
+                || name.contains("vmware")
+                || name.contains("veth")
+                || name.contains("virbr")
+                || name.contains("tun")
+                || name.contains("tap")
+            {
                 continue;
             }
 
@@ -316,7 +317,7 @@ mod tests {
     #[test]
     fn test_parse_network_range() {
         let ips = parse_network_range("192.168.1.0/24").unwrap();
-        assert_eq!(ips.len(), 254);  // 256 - 2 (network and broadcast)
+        assert_eq!(ips.len(), 254); // 256 - 2 (network and broadcast)
         assert_eq!(ips[0].to_string(), "192.168.1.1");
         assert_eq!(ips[253].to_string(), "192.168.1.254");
     }

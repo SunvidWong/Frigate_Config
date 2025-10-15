@@ -274,10 +274,7 @@ mod tests {
 
         camera.validate();
         assert_eq!(camera.validation_status, ValidationStatus::Error);
-        assert!(camera
-            .validation_errors
-            .iter()
-            .any(|e| e.contains("Name")));
+        assert!(camera.validation_errors.iter().any(|e| e.contains("Name")));
     }
 
     #[test]
@@ -290,7 +287,7 @@ mod tests {
 
         // Set odd resolution (invalid for video encoding)
         camera.resolution = Resolution {
-            width: 1921,  // Odd width
+            width: 1921, // Odd width
             height: 1080,
         };
 
@@ -325,7 +322,7 @@ mod tests {
     fn test_validation_multiple_errors() {
         let mut camera = CameraConfiguration::new(
             "cam-1".to_string(),
-            "".to_string(), // Empty ID
+            "".to_string(),               // Empty ID
             "http://invalid".to_string(), // Invalid protocol
         );
 

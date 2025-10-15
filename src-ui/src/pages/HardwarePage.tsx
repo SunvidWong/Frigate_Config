@@ -61,6 +61,25 @@ const PRESET_HARDWARE: PresetHardware[] = [
   { id: 'video1', name: '视频设备 1', devicePath: '/dev/video1', type: 'camera', description: 'USB 摄像头或采集卡' },
 ]
 
+// Phase 4 - 扩展的添加设备响应结构
+interface AddHardwareDeviceResponse {
+  success: boolean
+  message: string
+  device_path: string
+  device_type: string
+  docker_compose_updated: boolean
+  docker_compose_path: string | null
+  frigate_service_name: string | null
+  warnings: string[]
+}
+
+// Phase 2 - Docker Compose 路径响应
+interface DockerComposePathResponse {
+  path: string | null
+  is_custom: boolean
+  message: string
+}
+
 const HardwarePage: React.FC = () => {
   const [devices, setDevices] = useState<HardwareDevice[]>([])
   const [filteredDevices, setFilteredDevices] = useState<HardwareDevice[]>([])
@@ -80,6 +99,15 @@ const HardwarePage: React.FC = () => {
   const [pciDevices, setPciDevices] = useState<PciDeviceInfo[]>([])
   const [showPciDevices, setShowPciDevices] = useState(false)
 
+  // Phase 2 - Docker Compose 路径管理状态
+  const [dockerComposePath, setDockerComposePath] = useState<string | null>(null)
+  const [isCustomPath, setIsCustomPath] = useState(false)
+  const [showPathConfig, setShowPathConfig] = useState(false)
+  const [customPathInput, setCustomPathInput] = useState('')
+
+  // Phase 4 - 详细的添加结果信息
+  const [lastAddResult, setLastAddResult] = useState<AddHardwareDeviceResponse | null>(null)
+
   const {
     data: detectionData,
     error: detectionError,
@@ -98,11 +126,29 @@ const HardwarePage: React.FC = () => {
     setIsInTauriEnv(isTauriEnvironment())
   }, [])
 
+  // Phase 2 - 加载 docker-compose.yml 路径配置
+  useEffect(() => {
+    const loadDockerComposePath = async () => {
+      try {
+        const result = await safeInvoke<DockerComposePathResponse>('get_docker_compose_path')
+        setDockerComposePath(result.path || '自动检测')
+        setIsCustomPath(result.is_custom)
+      } catch (err) {
+        console.error('加载 docker-compose 路径失败:', err)
+      }
+    }
+
+    if (isInTauriEnv) {
+      loadDockerComposePath()
+    }
+  }, [isInTauriEnv])
+
   // Initial detection on mount (only in Tauri environment)
   useEffect(() => {
     if (isInTauriEnv) {
       runDetection()
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isInTauriEnv])
 
   // Update devices when detection completes
@@ -153,21 +199,27 @@ const HardwarePage: React.FC = () => {
     }
   }
 
+  // Phase 4 - 处理扩展的响应结构
   const handleAddToConfig = async (device: HardwareDevice) => {
     setAddingDevice(device.id)
     setAddSuccess(null)
+    setLastAddResult(null)
 
     try {
-      await safeInvoke('add_hardware_device_to_config', {
+      const result = await safeInvoke<AddHardwareDeviceResponse>('add_hardware_device_to_config', {
         devicePath: device.device_path,
         deviceType: device.type,
         deviceName: device.name
       })
 
+      setLastAddResult(result)
       setAddSuccess(`已添加 ${device.name} 到配置`)
 
-      // Clear success message after 3 seconds
-      setTimeout(() => setAddSuccess(null), 3000)
+      // Clear success message after 5 seconds
+      setTimeout(() => {
+        setAddSuccess(null)
+        setLastAddResult(null)
+      }, 5000)
     } catch (err) {
       alert(`添加失败: ${err}`)
     } finally {
@@ -175,6 +227,7 @@ const HardwarePage: React.FC = () => {
     }
   }
 
+  // Phase 4 - 处理扩展的响应结构
   const handlePresetAdd = async () => {
     if (!selectedPreset) {
       alert('请选择一个硬件设备')
@@ -186,22 +239,27 @@ const HardwarePage: React.FC = () => {
 
     setAddingDevice(preset.id)
     setAddSuccess(null)
+    setLastAddResult(null)
 
     try {
-      await safeInvoke('add_hardware_device_to_config', {
+      const result = await safeInvoke<AddHardwareDeviceResponse>('add_hardware_device_to_config', {
         devicePath: preset.devicePath,
         deviceType: preset.type,
         deviceName: preset.name
       })
 
+      setLastAddResult(result)
       setAddSuccess(`已添加 ${preset.name} 到配置和 docker-compose.yml`)
 
       // Clear selection
       setSelectedPreset('')
       setShowPresetSelector(false)
 
-      // Clear success message after 3 seconds
-      setTimeout(() => setAddSuccess(null), 3000)
+      // Clear success message after 5 seconds
+      setTimeout(() => {
+        setAddSuccess(null)
+        setLastAddResult(null)
+      }, 5000)
     } catch (err) {
       alert(`添加失败: ${err}`)
     } finally {
@@ -251,6 +309,7 @@ const HardwarePage: React.FC = () => {
     }
   }
 
+  // Phase 4 - 处理扩展的响应结构
   const handleAddPciDevice = async (pciDevice: PciDeviceInfo) => {
     if (!pciDevice.recommended_device_path) {
       alert('无法确定此设备的推荐路径')
@@ -259,6 +318,7 @@ const HardwarePage: React.FC = () => {
 
     setAddingDevice(pciDevice.slot)
     setAddSuccess(null)
+    setLastAddResult(null)
 
     try {
       let deviceName = pciDevice.vendor
@@ -279,22 +339,70 @@ const HardwarePage: React.FC = () => {
         devicePath = pciDevice.recommended_device_path.split(', ')[0]
       }
 
-      await safeInvoke('add_hardware_device_to_config', {
+      const result = await safeInvoke<AddHardwareDeviceResponse>('add_hardware_device_to_config', {
         devicePath,
         deviceType: 'gpu',
         deviceName
       })
+
+      setLastAddResult(result)
 
       if (pciDevice.is_nvidia) {
         setAddSuccess(`已添加 ${deviceName} 到配置 (使用 deploy.resources.reservations)`)
       } else {
         setAddSuccess(`已添加 ${deviceName} 到配置`)
       }
-      setTimeout(() => setAddSuccess(null), 3000)
+      setTimeout(() => {
+        setAddSuccess(null)
+        setLastAddResult(null)
+      }, 5000)
     } catch (err) {
       alert(`添加失败: ${err}`)
     } finally {
       setAddingDevice(null)
+    }
+  }
+
+  // Phase 2 - 设置自定义路径
+  const handleSetCustomPath = async () => {
+    if (!customPathInput.trim()) {
+      alert('请输入有效的路径')
+      return
+    }
+
+    try {
+      const result = await safeInvoke<{ success: boolean; message: string; path: string }>('set_docker_compose_path', {
+        path: customPathInput
+      })
+
+      if (result.success) {
+        setDockerComposePath(result.path)
+        setIsCustomPath(true)
+        setShowPathConfig(false)
+        setCustomPathInput('')
+        alert(`✓ ${result.message}`)
+      }
+    } catch (err) {
+      alert(`设置路径失败: ${err}`)
+    }
+  }
+
+  // Phase 2 - 重置为自动检测
+  const handleResetPath = async () => {
+    try {
+      // 通过设置空路径来重置为自动检测
+      const result = await safeInvoke<{ success: boolean; message: string; path: string }>('set_docker_compose_path', {
+        path: ''
+      })
+
+      if (result.success) {
+        setDockerComposePath('自动检测')
+        setIsCustomPath(false)
+        setShowPathConfig(false)
+        alert('✓ 已重置为自动检测模式')
+      }
+    } catch (err) {
+      alert(`重置失败: ${err}`)
     }
   }
 
@@ -327,6 +435,131 @@ const HardwarePage: React.FC = () => {
           检测可用的硬件加速器和视频设备
         </p>
       </div>
+
+      {/* Phase 2 - Docker Compose 路径配置 */}
+      {dockerComposePath && (
+        <Card className="mb-6 bg-gradient-to-r from-purple-50 to-pink-50 border border-purple-200">
+          <div className="flex items-start">
+            <span className="text-purple-500 text-2xl mr-3">📂</span>
+            <div className="flex-1">
+              <h3 className="text-lg font-semibold text-purple-900 mb-2">Docker Compose 配置文件</h3>
+              <div className="space-y-2">
+                <div className="flex items-center">
+                  <span className="text-sm text-purple-800 mr-2">当前路径:</span>
+                  <code className="text-sm bg-purple-100 px-2 py-1 rounded font-mono text-purple-900">
+                    {dockerComposePath}
+                  </code>
+                  {isCustomPath && (
+                    <span className="ml-2 px-2 py-0.5 bg-purple-200 text-purple-900 text-xs rounded">自定义</span>
+                  )}
+                </div>
+
+                <div className="flex space-x-2 mt-3">
+                  <Button
+                    size="sm"
+                    onClick={() => setShowPathConfig(!showPathConfig)}
+                    icon={showPathConfig ? '−' : '⚙️'}
+                    variant="outline"
+                  >
+                    {showPathConfig ? '关闭设置' : '配置路径'}
+                  </Button>
+                  {isCustomPath && (
+                    <Button
+                      size="sm"
+                      onClick={handleResetPath}
+                      icon="↺"
+                      variant="outline"
+                    >
+                      重置为自动检测
+                    </Button>
+                  )}
+                </div>
+
+                {showPathConfig && (
+                  <div className="mt-4 p-4 bg-white rounded-lg border border-purple-200">
+                    <h4 className="font-semibold text-gray-900 mb-3">设置自定义路径</h4>
+                    <p className="text-sm text-gray-600 mb-3">
+                      输入 docker-compose.yml 文件的完整路径。例如: /opt/frigate/docker-compose.yml
+                    </p>
+                    <div className="flex space-x-2">
+                      <input
+                        type="text"
+                        value={customPathInput}
+                        onChange={(e) => setCustomPathInput(e.target.value)}
+                        placeholder="/path/to/docker-compose.yml"
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      />
+                      <Button
+                        size="sm"
+                        onClick={handleSetCustomPath}
+                        disabled={!customPathInput.trim()}
+                        icon="✓"
+                      >
+                        应用
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={() => {
+                          setShowPathConfig(false)
+                          setCustomPathInput('')
+                        }}
+                        variant="ghost"
+                      >
+                        取消
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {/* Phase 4 - 增强的成功消息 */}
+      {addSuccess && lastAddResult && (
+        <div className="mb-6 bg-green-50 border border-green-200 rounded-lg p-4">
+          <div className="flex items-start">
+            <span className="text-green-500 text-2xl mr-3">✓</span>
+            <div className="flex-1">
+              <p className="text-green-800 font-medium mb-2">{addSuccess}</p>
+
+              {/* 详细信息 */}
+              <div className="space-y-1 text-sm">
+                {lastAddResult.docker_compose_updated && (
+                  <div className="flex items-center text-green-700">
+                    <span className="mr-2">📝</span>
+                    <span>docker-compose.yml 已更新</span>
+                  </div>
+                )}
+
+                {lastAddResult.docker_compose_path && (
+                  <div className="flex items-center text-green-700">
+                    <span className="mr-2">📂</span>
+                    <span>文件路径: <code className="bg-green-100 px-1 rounded font-mono text-xs">{lastAddResult.docker_compose_path}</code></span>
+                  </div>
+                )}
+
+                {lastAddResult.frigate_service_name && (
+                  <div className="flex items-center text-green-700">
+                    <span className="mr-2">🎯</span>
+                    <span>服务名称: <code className="bg-green-100 px-1 rounded font-mono text-xs">{lastAddResult.frigate_service_name}</code></span>
+                  </div>
+                )}
+
+                {lastAddResult.warnings && lastAddResult.warnings.length > 0 && (
+                  <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded">
+                    <p className="text-yellow-800 font-medium text-xs mb-1">⚠️ 警告:</p>
+                    {lastAddResult.warnings.map((warning, idx) => (
+                      <p key={idx} className="text-yellow-700 text-xs">• {warning}</p>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Preset Hardware Selector for Docker/Browser Mode */}
       {!isInTauriEnv && (
@@ -512,8 +745,8 @@ const HardwarePage: React.FC = () => {
         </Card>
       )}
 
-      {/* Success Message */}
-      {addSuccess && (
+      {/* Success Message - 简化版本 (如果没有详细结果) */}
+      {addSuccess && !lastAddResult && (
         <div className="mb-6 bg-green-50 border border-green-200 rounded-lg p-4">
           <div className="flex items-center">
             <span className="text-green-500 text-2xl mr-3">✓</span>

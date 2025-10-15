@@ -145,13 +145,13 @@ export class ConfigFixer {
 
     if (hasCameraRecord && hasGlobalRecord) {
       // Remove global record section
-      fixed = fixed.replace(/^record:\n(?:  .*\n)*/gm, '');
+      fixed = fixed.replace(/^record:\n(?: {2}.*\n)*/gm, '');
       changes.push('移除了重复的全局录制配置');
     }
 
     if (hasCameraSnapshots && hasGlobalSnapshots) {
       // Remove global snapshots section
-      fixed = fixed.replace(/^snapshots:\n(?:  .*\n)*/gm, '');
+      fixed = fixed.replace(/^snapshots:\n(?: {2}.*\n)*/gm, '');
       changes.push('移除了重复的全局快照配置');
     }
 
@@ -172,7 +172,7 @@ export class ConfigFixer {
 `;
       // Insert after mqtt section or at the beginning
       if (fixed.includes('mqtt:')) {
-        fixed = fixed.replace(/(mqtt:\n(?:  .*\n)*)\n?/, `$1\n${detectorsConfig}`);
+        fixed = fixed.replace(/(mqtt:\n(?: {2}.*\n)*)\n?/, `$1\n${detectorsConfig}`);
       } else {
         fixed = detectorsConfig + fixed;
       }

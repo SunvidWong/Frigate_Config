@@ -31,7 +31,10 @@ detectors:
 "#;
 
     let parser = ConfigParser::new();
-    let config = parser.parse_content(yaml.to_string(), "test.yaml".to_string()).unwrap().config;
+    let config = parser
+        .parse_content(yaml.to_string(), "test.yaml".to_string())
+        .unwrap()
+        .config;
 
     let options = SnapshotOptions {
         description: Some("Test snapshot".to_string()),
@@ -47,7 +50,10 @@ detectors:
     let snapshot = snapshot.unwrap();
 
     assert!(!snapshot.id.is_empty(), "Snapshot should have an ID");
-    assert!(!snapshot.yaml_content.is_empty(), "Snapshot should have YAML content");
+    assert!(
+        !snapshot.yaml_content.is_empty(),
+        "Snapshot should have YAML content"
+    );
     assert_eq!(snapshot.created_by, CreationSource::Ui);
 }
 
@@ -76,7 +82,10 @@ detectors:
 "#;
 
     let parser = ConfigParser::new();
-    let config = parser.parse_content(yaml.to_string(), "test.yaml".to_string()).unwrap().config;
+    let config = parser
+        .parse_content(yaml.to_string(), "test.yaml".to_string())
+        .unwrap()
+        .config;
 
     let options = SnapshotOptions {
         description: Some("Load test snapshot".to_string()),
@@ -131,7 +140,10 @@ detectors:
             i, i
         );
 
-        let config = parser.parse_content(yaml, format!("test{}.yaml", i)).unwrap().config;
+        let config = parser
+            .parse_content(yaml, format!("test{}.yaml", i))
+            .unwrap()
+            .config;
 
         let options = SnapshotOptions {
             description: Some(format!("Snapshot {}", i)),
@@ -188,7 +200,10 @@ detectors:
 "#;
 
     let parser = ConfigParser::new();
-    let config = parser.parse_content(yaml.to_string(), "test.yaml".to_string()).unwrap().config;
+    let config = parser
+        .parse_content(yaml.to_string(), "test.yaml".to_string())
+        .unwrap()
+        .config;
 
     let options = SnapshotOptions {
         description: Some("Delete test".to_string()),
@@ -212,7 +227,10 @@ detectors:
 
     // Verify it's gone
     let load_after_delete = manager.load_snapshot(&snapshot_id).await;
-    assert!(load_after_delete.is_err(), "Snapshot should not exist after deletion");
+    assert!(
+        load_after_delete.is_err(),
+        "Snapshot should not exist after deletion"
+    );
 }
 
 #[tokio::test]
@@ -239,7 +257,10 @@ detectors:
 "#;
 
     let parser = ConfigParser::new();
-    let config = parser.parse_content(yaml.to_string(), "test.yaml".to_string()).unwrap().config;
+    let config = parser
+        .parse_content(yaml.to_string(), "test.yaml".to_string())
+        .unwrap()
+        .config;
 
     let options = SnapshotOptions {
         description: Some("Backup before deployment".to_string()),
@@ -281,7 +302,10 @@ detectors:
 "#;
 
     let parser = ConfigParser::new();
-    let config = parser.parse_content(yaml.to_string(), "test.yaml".to_string()).unwrap().config;
+    let config = parser
+        .parse_content(yaml.to_string(), "test.yaml".to_string())
+        .unwrap()
+        .config;
 
     let options = SnapshotOptions {
         description: Some("Checksum test".to_string()),
@@ -297,8 +321,14 @@ detectors:
     // Load and verify checksum
     let loaded_snapshot = manager.load_snapshot(&snapshot_id).await.unwrap();
 
-    assert!(!loaded_snapshot.checksum.is_empty(), "Checksum should not be empty");
-    assert!(loaded_snapshot.verify_checksum(), "Checksum should be valid");
+    assert!(
+        !loaded_snapshot.checksum.is_empty(),
+        "Checksum should not be empty"
+    );
+    assert!(
+        loaded_snapshot.verify_checksum(),
+        "Checksum should be valid"
+    );
 }
 
 #[tokio::test]
@@ -342,7 +372,10 @@ detectors:
 "#;
 
     let parser = ConfigParser::new();
-    let config = parser.parse_content(yaml.to_string(), "test.yaml".to_string()).unwrap().config;
+    let config = parser
+        .parse_content(yaml.to_string(), "test.yaml".to_string())
+        .unwrap()
+        .config;
 
     // Create two identical snapshots
     let options = SnapshotOptions {
@@ -364,13 +397,22 @@ detectors:
     let snapshot_b = manager.create_snapshot(&config, options).await.unwrap();
 
     // Compare snapshots
-    let comparison = manager.compare_snapshots(&snapshot_a.id, &snapshot_b.id).await;
+    let comparison = manager
+        .compare_snapshots(&snapshot_a.id, &snapshot_b.id)
+        .await;
 
     assert!(comparison.is_ok());
     let comparison = comparison.unwrap();
 
-    assert!(comparison.identical, "Identical configs should have identical flag set");
-    assert_eq!(comparison.differences.len(), 0, "Should have no differences");
+    assert!(
+        comparison.identical,
+        "Identical configs should have identical flag set"
+    );
+    assert_eq!(
+        comparison.differences.len(),
+        0,
+        "Should have no differences"
+    );
 }
 
 #[tokio::test]
@@ -416,8 +458,14 @@ detectors:
 "#;
 
     let parser = ConfigParser::new();
-    let config_a = parser.parse_content(yaml_a.to_string(), "test_a.yaml".to_string()).unwrap().config;
-    let config_b = parser.parse_content(yaml_b.to_string(), "test_b.yaml".to_string()).unwrap().config;
+    let config_a = parser
+        .parse_content(yaml_a.to_string(), "test_a.yaml".to_string())
+        .unwrap()
+        .config;
+    let config_b = parser
+        .parse_content(yaml_b.to_string(), "test_b.yaml".to_string())
+        .unwrap()
+        .config;
 
     // Create two snapshots
     let options_a = SnapshotOptions {
@@ -442,12 +490,17 @@ detectors:
     let snapshot_b = manager.create_snapshot(&config_b, options_b).await.unwrap();
 
     // Compare snapshots
-    let comparison = manager.compare_snapshots(&snapshot_a.id, &snapshot_b.id).await;
+    let comparison = manager
+        .compare_snapshots(&snapshot_a.id, &snapshot_b.id)
+        .await;
 
     assert!(comparison.is_ok());
     let comparison = comparison.unwrap();
 
-    assert!(!comparison.identical, "Different configs should not be identical");
+    assert!(
+        !comparison.identical,
+        "Different configs should not be identical"
+    );
     assert!(comparison.differences.len() > 0, "Should have differences");
     assert!(comparison.statistics.differences_count > 0);
 }
@@ -478,7 +531,10 @@ detectors:
     model: yolov8n
 "#;
 
-    let config = parser.parse_content(yaml.to_string(), "test.yaml".to_string()).unwrap().config;
+    let config = parser
+        .parse_content(yaml.to_string(), "test.yaml".to_string())
+        .unwrap()
+        .config;
 
     let options = SnapshotOptions {
         description: Some("Regular snapshot".to_string()),
@@ -542,7 +598,10 @@ detectors:
     model: yolov8n
 "#;
 
-    let config = parser.parse_content(yaml.to_string(), "test.yaml".to_string()).unwrap().config;
+    let config = parser
+        .parse_content(yaml.to_string(), "test.yaml".to_string())
+        .unwrap()
+        .config;
 
     // Create 5 snapshots
     for i in 1..=5 {
@@ -595,7 +654,10 @@ detectors:
 "#;
 
     let parser = ConfigParser::new();
-    let config = parser.parse_content(yaml.to_string(), "test.yaml".to_string()).unwrap().config;
+    let config = parser
+        .parse_content(yaml.to_string(), "test.yaml".to_string())
+        .unwrap()
+        .config;
 
     let sources = vec![
         CreationSource::Ui,

@@ -10,7 +10,7 @@ use std::collections::HashMap;
 pub struct DockerRunConfig {
     pub image: String,
     pub container_name: String,
-    pub ports: Vec<(u16, u16)>, // (host_port, container_port)
+    pub ports: Vec<(u16, u16)>,         // (host_port, container_port)
     pub volumes: Vec<(String, String)>, // (host_path, container_path)
     pub devices: Vec<String>,
     pub environment: HashMap<String, String>,
@@ -275,10 +275,7 @@ pub fn generate_gpu_device_args(gpu_type: &str) -> Vec<String> {
 
 // T099: Generate device mount arguments for Coral TPU
 pub fn generate_coral_device_args() -> Vec<String> {
-    vec![
-        "/dev/apex_0".to_string(),
-        "/dev/bus/usb".to_string(),
-    ]
+    vec!["/dev/apex_0".to_string(), "/dev/bus/usb".to_string()]
 }
 
 // T100: Convert VolumeMapping to docker volume argument
@@ -345,10 +342,7 @@ mod tests {
         .with_port(8555, 8555)
         .with_volume("/etc/localtime".to_string(), "/etc/localtime".to_string())
         .with_volume("/path/to/config".to_string(), "/config".to_string())
-        .with_volume(
-            "/path/to/storage".to_string(),
-            "/media/frigate".to_string(),
-        )
+        .with_volume("/path/to/storage".to_string(), "/media/frigate".to_string())
         .with_restart("unless-stopped".to_string());
 
         let command = generate_docker_run_command(&config);
@@ -502,9 +496,8 @@ mod tests {
 
     #[test]
     fn test_validate_docker_config_invalid_port() {
-        let config =
-            DockerRunConfig::new("frigate:latest".to_string(), "frigate".to_string())
-                .with_port(0, 5000);
+        let config = DockerRunConfig::new("frigate:latest".to_string(), "frigate".to_string())
+            .with_port(0, 5000);
 
         let result = validate_docker_config(&config);
         assert!(result.is_err());
@@ -572,10 +565,7 @@ mod tests {
         use crate::models::volume_mapping::{VolumeMapping, VolumeMappingType};
         use std::path::PathBuf;
 
-        let config = DockerRunConfig::new(
-            "frigate:latest".to_string(),
-            "frigate".to_string(),
-        );
+        let config = DockerRunConfig::new("frigate:latest".to_string(), "frigate".to_string());
 
         let mappings = vec![
             VolumeMapping::new(
@@ -593,8 +583,17 @@ mod tests {
         let updated_config = add_volume_mappings_to_config(config, &mappings);
 
         assert_eq!(updated_config.volumes.len(), 2);
-        assert_eq!(updated_config.volumes[0], ("/host/config".to_string(), "/config".to_string()));
-        assert_eq!(updated_config.volumes[1], ("/host/recordings".to_string(), "/media/frigate/recordings".to_string()));
+        assert_eq!(
+            updated_config.volumes[0],
+            ("/host/config".to_string(), "/config".to_string())
+        );
+        assert_eq!(
+            updated_config.volumes[1],
+            (
+                "/host/recordings".to_string(),
+                "/media/frigate/recordings".to_string()
+            )
+        );
     }
 
     #[test]
@@ -612,7 +611,8 @@ mod tests {
                 PathBuf::from("/etc/localtime"),
                 "/etc/localtime".to_string(),
                 VolumeMappingType::Custom,
-            ).read_only(),
+            )
+            .read_only(),
         ];
 
         let volumes = volume_mappings_to_compose_volumes(&mappings);

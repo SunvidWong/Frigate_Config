@@ -12,8 +12,7 @@ pub fn read_file<P: AsRef<Path>>(path: P) -> Result<String> {
     let path = path.as_ref();
     info!("Reading file: {:?}", path);
 
-    fs::read_to_string(path)
-        .with_context(|| format!("Failed to read file: {:?}", path))
+    fs::read_to_string(path).with_context(|| format!("Failed to read file: {:?}", path))
 }
 
 /// Write a file atomically using temp file + rename
@@ -24,25 +23,26 @@ pub fn write_file_atomic<P: AsRef<Path>>(path: P, content: &str) -> Result<()> {
 
     // Ensure parent directory exists
     if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent)
-            .context("Failed to create parent directory")?;
+        fs::create_dir_all(parent).context("Failed to create parent directory")?;
     }
 
     // Write to temporary file in the same directory
     let parent = path.parent().unwrap_or_else(|| Path::new("."));
-    let mut temp_file = NamedTempFile::new_in(parent)
-        .context("Failed to create temporary file")?;
+    let mut temp_file = NamedTempFile::new_in(parent).context("Failed to create temporary file")?;
 
     // Write content
     use std::io::Write;
-    temp_file.write_all(content.as_bytes())
+    temp_file
+        .write_all(content.as_bytes())
         .context("Failed to write to temporary file")?;
 
-    temp_file.flush()
+    temp_file
+        .flush()
         .context("Failed to flush temporary file")?;
 
     // Atomically rename temp file to target
-    temp_file.persist(path)
+    temp_file
+        .persist(path)
         .with_context(|| format!("Failed to persist file to {:?}", path))?;
 
     info!("File written successfully: {:?}", path);
@@ -57,10 +57,11 @@ pub fn file_exists<P: AsRef<Path>>(path: P) -> bool {
 /// Get file modification time as ISO 8601 string
 pub fn get_file_modified_time<P: AsRef<Path>>(path: P) -> Result<String> {
     let path = path.as_ref();
-    let metadata = fs::metadata(path)
-        .with_context(|| format!("Failed to get metadata for {:?}", path))?;
+    let metadata =
+        fs::metadata(path).with_context(|| format!("Failed to get metadata for {:?}", path))?;
 
-    let modified = metadata.modified()
+    let modified = metadata
+        .modified()
         .context("Failed to get modification time")?;
 
     let datetime: chrono::DateTime<chrono::Utc> = modified.into();
@@ -95,8 +96,7 @@ pub fn delete_file<P: AsRef<Path>>(path: P) -> Result<()> {
         return Ok(());
     }
 
-    fs::remove_file(path)
-        .with_context(|| format!("Failed to delete file: {:?}", path))?;
+    fs::remove_file(path).with_context(|| format!("Failed to delete file: {:?}", path))?;
 
     info!("File deleted: {:?}", path);
     Ok(())

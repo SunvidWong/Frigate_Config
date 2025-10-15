@@ -1,7 +1,9 @@
 // T058: Integration tests for rollback functionality
 // Tests for backup.rs restore and rollback operations
 
-use frigate_config_tool::config_engine::backup::{SnapshotManager, SnapshotOptions, RestoreOptions};
+use frigate_config_tool::config_engine::backup::{
+    RestoreOptions, SnapshotManager, SnapshotOptions,
+};
 use frigate_config_tool::config_engine::parser::ConfigParser;
 use frigate_config_tool::models::configuration_snapshot::CreationSource;
 use std::path::PathBuf;
@@ -31,7 +33,10 @@ detectors:
 "#;
 
     let parser = ConfigParser::new();
-    let config = parser.parse_content(yaml.to_string(), "test.yaml".to_string()).unwrap().config;
+    let config = parser
+        .parse_content(yaml.to_string(), "test.yaml".to_string())
+        .unwrap()
+        .config;
 
     // Create snapshot
     let options = SnapshotOptions {
@@ -55,7 +60,9 @@ detectors:
         merge_changes: false,
     };
 
-    let result = manager.restore_snapshot(&snapshot.id, &target_path, restore_options).await;
+    let result = manager
+        .restore_snapshot(&snapshot.id, &target_path, restore_options)
+        .await;
 
     assert!(result.is_ok(), "Should restore snapshot successfully");
     let result = result.unwrap();
@@ -94,7 +101,10 @@ detectors:
 "#;
 
     let parser = ConfigParser::new();
-    let config = parser.parse_content(yaml.to_string(), "test.yaml".to_string()).unwrap().config;
+    let config = parser
+        .parse_content(yaml.to_string(), "test.yaml".to_string())
+        .unwrap()
+        .config;
 
     let options = SnapshotOptions {
         description: Some("Validation test".to_string()),
@@ -116,7 +126,9 @@ detectors:
         merge_changes: false,
     };
 
-    let result = manager.restore_snapshot(&snapshot.id, &target_path, restore_options).await;
+    let result = manager
+        .restore_snapshot(&snapshot.id, &target_path, restore_options)
+        .await;
 
     assert!(result.is_ok(), "Should restore with validation");
     assert!(target_path.exists());
@@ -146,7 +158,9 @@ detectors:
   cpu1:
     model: yolov8n
 "#;
-    tokio::fs::write(&target_path, initial_content).await.unwrap();
+    tokio::fs::write(&target_path, initial_content)
+        .await
+        .unwrap();
 
     // Create a snapshot to restore
     let new_yaml = r#"
@@ -167,7 +181,10 @@ detectors:
 "#;
 
     let parser = ConfigParser::new();
-    let config = parser.parse_content(new_yaml.to_string(), "test.yaml".to_string()).unwrap().config;
+    let config = parser
+        .parse_content(new_yaml.to_string(), "test.yaml".to_string())
+        .unwrap()
+        .config;
 
     let options = SnapshotOptions {
         description: Some("New config".to_string()),
@@ -187,7 +204,9 @@ detectors:
         merge_changes: false,
     };
 
-    let result = manager.restore_snapshot(&snapshot.id, &target_path, restore_options).await;
+    let result = manager
+        .restore_snapshot(&snapshot.id, &target_path, restore_options)
+        .await;
 
     assert!(result.is_ok(), "Should restore with backup");
 
@@ -219,9 +238,14 @@ async fn test_restore_nonexistent_snapshot() {
         merge_changes: false,
     };
 
-    let result = manager.restore_snapshot("nonexistent_snapshot", &target_path, restore_options).await;
+    let result = manager
+        .restore_snapshot("nonexistent_snapshot", &target_path, restore_options)
+        .await;
 
-    assert!(result.is_err(), "Should fail to restore non-existent snapshot");
+    assert!(
+        result.is_err(),
+        "Should fail to restore non-existent snapshot"
+    );
 }
 
 #[tokio::test]
@@ -249,7 +273,10 @@ detectors:
     model: yolov8n
 "#;
 
-    let config = parser.parse_content(config_v1.to_string(), "v1.yaml".to_string()).unwrap().config;
+    let config = parser
+        .parse_content(config_v1.to_string(), "v1.yaml".to_string())
+        .unwrap()
+        .config;
 
     let options = SnapshotOptions {
         description: Some("Version 1".to_string()),
@@ -282,7 +309,10 @@ detectors:
     model: yolov8s
 "#;
 
-    let config = parser.parse_content(config_v2.to_string(), "v2.yaml".to_string()).unwrap().config;
+    let config = parser
+        .parse_content(config_v2.to_string(), "v2.yaml".to_string())
+        .unwrap()
+        .config;
 
     let options = SnapshotOptions {
         description: Some("Version 2 - modified".to_string()),
@@ -306,15 +336,26 @@ detectors:
         merge_changes: false,
     };
 
-    let result = manager.restore_snapshot(&snapshot_v1.id, &target_path, restore_options).await;
+    let result = manager
+        .restore_snapshot(&snapshot_v1.id, &target_path, restore_options)
+        .await;
 
     assert!(result.is_ok(), "Rollback should succeed");
 
     // Step 5: Verify rolled back content
     let current_content = tokio::fs::read_to_string(&target_path).await.unwrap();
-    assert!(current_content.contains("camera_v1"), "Should contain v1 camera");
-    assert!(!current_content.contains("camera_v2"), "Should not contain v2 camera");
-    assert!(current_content.contains("yolov8n"), "Should have original model");
+    assert!(
+        current_content.contains("camera_v1"),
+        "Should contain v1 camera"
+    );
+    assert!(
+        !current_content.contains("camera_v2"),
+        "Should not contain v2 camera"
+    );
+    assert!(
+        current_content.contains("yolov8n"),
+        "Should have original model"
+    );
 }
 
 #[tokio::test]
@@ -356,7 +397,10 @@ detectors:
             camera_name
         );
 
-        let config = parser.parse_content(yaml, format!("{}.yaml", version)).unwrap().config;
+        let config = parser
+            .parse_content(yaml, format!("{}.yaml", version))
+            .unwrap()
+            .config;
 
         let options = SnapshotOptions {
             description: Some(format!("Version {}", version)),
@@ -381,22 +425,34 @@ detectors:
     };
 
     // Restore v3
-    manager.restore_snapshot(&snapshots[2].id, &target_path, restore_options.clone()).await.unwrap();
+    manager
+        .restore_snapshot(&snapshots[2].id, &target_path, restore_options.clone())
+        .await
+        .unwrap();
     let content = tokio::fs::read_to_string(&target_path).await.unwrap();
     assert!(content.contains("camera_v3"));
 
     // Rollback to v2
-    manager.restore_snapshot(&snapshots[1].id, &target_path, restore_options.clone()).await.unwrap();
+    manager
+        .restore_snapshot(&snapshots[1].id, &target_path, restore_options.clone())
+        .await
+        .unwrap();
     let content = tokio::fs::read_to_string(&target_path).await.unwrap();
     assert!(content.contains("camera_v2"));
 
     // Rollback to v1
-    manager.restore_snapshot(&snapshots[0].id, &target_path, restore_options.clone()).await.unwrap();
+    manager
+        .restore_snapshot(&snapshots[0].id, &target_path, restore_options.clone())
+        .await
+        .unwrap();
     let content = tokio::fs::read_to_string(&target_path).await.unwrap();
     assert!(content.contains("camera_v1"));
 
     // Roll forward to v2
-    manager.restore_snapshot(&snapshots[1].id, &target_path, restore_options.clone()).await.unwrap();
+    manager
+        .restore_snapshot(&snapshots[1].id, &target_path, restore_options.clone())
+        .await
+        .unwrap();
     let content = tokio::fs::read_to_string(&target_path).await.unwrap();
     assert!(content.contains("camera_v2"));
 }
@@ -431,7 +487,10 @@ detectors:
 "#;
 
     let parser = ConfigParser::new();
-    let config = parser.parse_content(yaml.to_string(), "test.yaml".to_string()).unwrap().config;
+    let config = parser
+        .parse_content(yaml.to_string(), "test.yaml".to_string())
+        .unwrap()
+        .config;
 
     let options = SnapshotOptions {
         description: Some("Structure test".to_string()),
@@ -452,7 +511,10 @@ detectors:
         merge_changes: false,
     };
 
-    manager.restore_snapshot(&snapshot.id, &target_path, restore_options).await.unwrap();
+    manager
+        .restore_snapshot(&snapshot.id, &target_path, restore_options)
+        .await
+        .unwrap();
 
     // Verify content
     let restored_content = tokio::fs::read_to_string(&target_path).await.unwrap();
@@ -485,7 +547,10 @@ detectors:
 "#;
 
     let parser = ConfigParser::new();
-    let config = parser.parse_content(yaml.to_string(), "test.yaml".to_string()).unwrap().config;
+    let config = parser
+        .parse_content(yaml.to_string(), "test.yaml".to_string())
+        .unwrap()
+        .config;
 
     let options = SnapshotOptions {
         description: Some("Metadata test".to_string()),
@@ -506,7 +571,10 @@ detectors:
         merge_changes: false,
     };
 
-    let result = manager.restore_snapshot(&snapshot.id, &target_path, restore_options).await.unwrap();
+    let result = manager
+        .restore_snapshot(&snapshot.id, &target_path, restore_options)
+        .await
+        .unwrap();
 
     assert!(result.success);
     assert!(!result.message.is_empty());
@@ -537,7 +605,10 @@ detectors:
 "#;
 
     let parser = ConfigParser::new();
-    let config = parser.parse_content(yaml.to_string(), "test.yaml".to_string()).unwrap().config;
+    let config = parser
+        .parse_content(yaml.to_string(), "test.yaml".to_string())
+        .unwrap()
+        .config;
 
     // Create a backup snapshot
     let options = SnapshotOptions {
@@ -562,9 +633,14 @@ detectors:
         merge_changes: false,
     };
 
-    let result = manager.restore_snapshot(&backup_snapshot.id, &target_path, restore_options).await;
+    let result = manager
+        .restore_snapshot(&backup_snapshot.id, &target_path, restore_options)
+        .await;
 
-    assert!(result.is_ok(), "Should be able to restore from backup snapshot");
+    assert!(
+        result.is_ok(),
+        "Should be able to restore from backup snapshot"
+    );
     assert!(target_path.exists());
 
     let content = tokio::fs::read_to_string(&target_path).await.unwrap();
@@ -595,7 +671,10 @@ detectors:
 "#;
 
     let parser = ConfigParser::new();
-    let config = parser.parse_content(yaml.to_string(), "test.yaml".to_string()).unwrap().config;
+    let config = parser
+        .parse_content(yaml.to_string(), "test.yaml".to_string())
+        .unwrap()
+        .config;
 
     let options = SnapshotOptions {
         description: Some("New file test".to_string()),
@@ -618,7 +697,9 @@ detectors:
         merge_changes: false,
     };
 
-    let result = manager.restore_snapshot(&snapshot.id, &target_path, restore_options).await;
+    let result = manager
+        .restore_snapshot(&snapshot.id, &target_path, restore_options)
+        .await;
 
     assert!(result.is_ok(), "Should restore to new file");
     assert!(target_path.exists(), "New file should be created");

@@ -1,7 +1,7 @@
 // Logging utilities
 // Provides structured logging for the application
 
-use tracing::{info, warn, error, debug};
+use tracing::{debug, error, info, warn};
 
 /// Log an audit event
 /// These are written to both application logs and potentially the audit log table
@@ -25,22 +25,12 @@ pub fn log_audit_event(event_type: &str, action: &str, success: bool, details: O
 
 /// Log a configuration change
 pub fn log_config_change(action: &str, file_path: &str, success: bool) {
-    log_audit_event(
-        "config_change",
-        action,
-        success,
-        Some(file_path)
-    );
+    log_audit_event("config_change", action, success, Some(file_path));
 }
 
 /// Log a deployment event
 pub fn log_deployment(action: &str, container_id: Option<&str>, success: bool) {
-    log_audit_event(
-        "deployment",
-        action,
-        success,
-        container_id
-    );
+    log_audit_event("deployment", action, success, container_id);
 }
 
 /// Log a hardware detection event

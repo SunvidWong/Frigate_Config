@@ -8,6 +8,6 @@ pub mod database;
 pub mod deployment;
 pub mod error;
 pub mod models;
-pub mod network;  // Network utilities and camera discovery
+pub mod network; // Network utilities and camera discovery
 pub mod state;
 pub mod utils;

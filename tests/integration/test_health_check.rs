@@ -8,10 +8,10 @@ mod test_health_check {
 
     // Import actual implementation
     use frigate_config_tool::deployment::health::{
-        HealthStatus, HealthCheckResult, HealthCheck, HealthCheckConfig,
-        check_container_health, check_frigate_api, check_frigate_api_with_retry,
-        wait_for_healthy, perform_comprehensive_health_check, check_container_running,
-        check_port_responding, check_frigate_config_loaded, check_cameras_initialized,
+        check_cameras_initialized, check_container_health, check_container_running,
+        check_frigate_api, check_frigate_api_with_retry, check_frigate_config_loaded,
+        check_port_responding, perform_comprehensive_health_check, wait_for_healthy, HealthCheck,
+        HealthCheckConfig, HealthCheckResult, HealthStatus,
     };
 
     // ========== Container Health Check Tests ==========
@@ -194,11 +194,7 @@ mod test_health_check {
         let container_id = "nonexistent_container";
 
         let start = Instant::now();
-        let result = wait_for_healthy(
-            container_id,
-            Duration::from_secs(5),
-            Duration::from_secs(1),
-        );
+        let result = wait_for_healthy(container_id, Duration::from_secs(5), Duration::from_secs(1));
         let duration = start.elapsed();
 
         // Should timeout after specified duration
@@ -212,11 +208,8 @@ mod test_health_check {
         let container_id = "frigate_test";
 
         let start = Instant::now();
-        let _result = wait_for_healthy(
-            container_id,
-            Duration::from_secs(6),
-            Duration::from_secs(2),
-        );
+        let _result =
+            wait_for_healthy(container_id, Duration::from_secs(6), Duration::from_secs(2));
         let duration = start.elapsed();
 
         // Should perform checks at intervals
@@ -241,8 +234,12 @@ mod test_health_check {
 
             // Verify at least some expected checks are present
             assert!(
-                check_names.iter().any(|name| name.contains("container") || name.contains("running"))
-                || check_names.iter().any(|name| name.contains("api") || name.contains("endpoint"))
+                check_names
+                    .iter()
+                    .any(|name| name.contains("container") || name.contains("running"))
+                    || check_names
+                        .iter()
+                        .any(|name| name.contains("api") || name.contains("endpoint"))
             );
         }
     }
@@ -362,8 +359,8 @@ mod test_health_check {
             // Might be Starting initially
             assert!(
                 status1 == HealthStatus::Starting
-                || status1 == HealthStatus::Healthy
-                || status1 == HealthStatus::Unknown
+                    || status1 == HealthStatus::Healthy
+                    || status1 == HealthStatus::Unknown
             );
         }
 
@@ -387,7 +384,11 @@ mod test_health_check {
         let duration = start.elapsed();
 
         // Comprehensive health check should complete within 10 seconds
-        assert!(duration < Duration::from_secs(10), "Health check took too long: {:?}", duration);
+        assert!(
+            duration < Duration::from_secs(10),
+            "Health check took too long: {:?}",
+            duration
+        );
     }
 
     // ========== Integration Test ==========
@@ -412,7 +413,8 @@ mod test_health_check {
                 if let Ok(is_healthy) = healthy {
                     if is_healthy {
                         // 3. Check port is responding
-                        let port_ok = check_port_responding("localhost", 5000, Duration::from_secs(5));
+                        let port_ok =
+                            check_port_responding("localhost", 5000, Duration::from_secs(5));
                         assert!(port_ok.is_ok());
 
                         // 4. Check Frigate API
@@ -420,7 +422,8 @@ mod test_health_check {
                         assert!(api_ok.is_ok());
 
                         // 5. Check config loaded
-                        let config_ok = check_frigate_config_loaded("http://localhost:5000/api/config");
+                        let config_ok =
+                            check_frigate_config_loaded("http://localhost:5000/api/config");
                         assert!(config_ok.is_ok());
 
                         // 6. Perform comprehensive check

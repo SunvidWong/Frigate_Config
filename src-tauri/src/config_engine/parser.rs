@@ -237,10 +237,7 @@ impl ConfigParser {
     }
 
     /// Parse a Frigate configuration file
-    pub async fn parse_file<P: AsRef<Path>>(
-        &self,
-        file_path: P,
-    ) -> Result<ParseResult, AppError> {
+    pub async fn parse_file<P: AsRef<Path>>(&self, file_path: P) -> Result<ParseResult, AppError> {
         let path = file_path.as_ref();
         info!("Parsing Frigate config file: {}", path.display());
 
@@ -253,7 +250,11 @@ impl ConfigParser {
     }
 
     /// Parse configuration from string content
-    pub fn parse_content(&self, content: String, file_path: String) -> Result<ParseResult, AppError> {
+    pub fn parse_content(
+        &self,
+        content: String,
+        file_path: String,
+    ) -> Result<ParseResult, AppError> {
         let mut warnings = Vec::new();
         let mut errors = Vec::new();
 
@@ -303,8 +304,11 @@ impl ConfigParser {
             global_config,
         };
 
-        info!("Successfully parsed config with {} cameras and {} detectors",
-              cameras.len(), detectors.len());
+        info!(
+            "Successfully parsed config with {} cameras and {} detectors",
+            cameras.len(),
+            detectors.len()
+        );
 
         Ok(ParseResult {
             config,
@@ -363,7 +367,8 @@ impl ConfigParser {
             if trimmed.contains("TODO")
                 || trimmed.contains("FIXME")
                 || trimmed.contains("MANUAL")
-                || trimmed.contains("TEMPORARY") {
+                || trimmed.contains("TEMPORARY")
+            {
                 manual_edit_lines.push(line_num + 1);
             }
 
@@ -389,10 +394,23 @@ impl ConfigParser {
 
     /// Check if a field is part of standard Frigate configuration
     fn is_standard_frigate_field(&self, field: &str) -> bool {
-        matches!(field,
-            "cameras" | "detectors" | "mqtt" | "database" | "go2rtc" |
-            "ffmpeg" | "logger" | "objects" | "record" | "snapshots" |
-            "detect" | "zones" | "webcam" | "birdseye" | "environment"
+        matches!(
+            field,
+            "cameras"
+                | "detectors"
+                | "mqtt"
+                | "database"
+                | "go2rtc"
+                | "ffmpeg"
+                | "logger"
+                | "objects"
+                | "record"
+                | "snapshots"
+                | "detect"
+                | "zones"
+                | "webcam"
+                | "birdseye"
+                | "environment"
         )
     }
 
@@ -413,14 +431,18 @@ impl ConfigParser {
     }
 
     /// Parse camera configurations
-    fn parse_cameras(&self, yaml: &Value, warnings: &mut Vec<ParseWarning>) -> HashMap<String, CameraConfig> {
+    fn parse_cameras(
+        &self,
+        yaml: &Value,
+        warnings: &mut Vec<ParseWarning>,
+    ) -> HashMap<String, CameraConfig> {
         let mut cameras = HashMap::new();
 
         if let Some(cameras_yaml) = yaml.get("cameras").and_then(|c| c.as_mapping()) {
             for (camera_key, camera_yaml) in cameras_yaml {
                 if let (Some(camera_name), Some(camera_mapping)) =
-                    (camera_key.as_str(), camera_yaml.as_mapping()) {
-
+                    (camera_key.as_str(), camera_yaml.as_mapping())
+                {
                     match self.parse_single_camera(camera_name, camera_mapping, warnings) {
                         Ok(camera) => {
                             cameras.insert(camera_name.to_string(), camera);
@@ -441,9 +463,10 @@ impl ConfigParser {
         &self,
         name: &str,
         yaml: &Mapping,
-        warnings: &mut Vec<ParseWarning>
+        warnings: &mut Vec<ParseWarning>,
     ) -> Result<CameraConfig, String> {
-        let enabled = yaml.get("enabled")
+        let enabled = yaml
+            .get("enabled")
             .and_then(|v| v.as_bool())
             .unwrap_or(true);
 
@@ -451,13 +474,16 @@ impl ConfigParser {
 
         let detect = self.parse_detect_config(yaml, warnings)?;
 
-        let record = yaml.get("record")
+        let record = yaml
+            .get("record")
             .and_then(|r| self.parse_record_config(r, warnings).ok());
 
-        let snapshots = yaml.get("snapshots")
+        let snapshots = yaml
+            .get("snapshots")
             .and_then(|s| self.parse_snapshots_config(s, warnings).ok());
 
-        let objects = yaml.get("objects")
+        let objects = yaml
+            .get("objects")
             .and_then(|o| self.parse_objects_config(o, warnings).ok());
 
         Ok(CameraConfig {
@@ -475,7 +501,7 @@ impl ConfigParser {
     fn parse_ffmpeg_inputs(
         &self,
         yaml: &Mapping,
-        warnings: &mut Vec<ParseWarning>
+        warnings: &mut Vec<ParseWarning>,
     ) -> Result<Vec<FfmpegInput>, String> {
         let mut inputs = Vec::new();
 
@@ -510,7 +536,9 @@ impl ConfigParser {
                         Value::Sequence(seq) => {
                             for item in seq {
                                 if let Some(input_obj) = item.as_mapping() {
-                                    if let Ok(input) = self.parse_single_ffmpeg_input(input_obj, warnings) {
+                                    if let Ok(input) =
+                                        self.parse_single_ffmpeg_input(input_obj, warnings)
+                                    {
                                         inputs.push(input);
                                     }
                                 }
@@ -538,15 +566,17 @@ impl ConfigParser {
     fn parse_single_ffmpeg_input(
         &self,
         yaml: &Mapping,
-        _warnings: &mut Vec<ParseWarning>
+        _warnings: &mut Vec<ParseWarning>,
     ) -> Result<FfmpegInput, String> {
-        let path = yaml.get("path")
+        let path = yaml
+            .get("path")
             .or_else(|| yaml.get("input"))
             .and_then(|p| p.as_str())
             .ok_or("Missing path for ffmpeg input")?
             .to_string();
 
-        let roles = yaml.get("roles")
+        let roles = yaml
+            .get("roles")
             .and_then(|r| r.as_sequence())
             .map(|seq| {
                 seq.iter()
@@ -556,7 +586,8 @@ impl ConfigParser {
             })
             .unwrap_or_else(|| vec!["detect".to_string(), "record".to_string()]);
 
-        let input_args = yaml.get("input_args")
+        let input_args = yaml
+            .get("input_args")
             .and_then(|args| args.as_sequence())
             .map(|seq| {
                 seq.iter()
@@ -565,7 +596,8 @@ impl ConfigParser {
                     .collect()
             });
 
-        let hwaccel_args = yaml.get("hwaccel_args")
+        let hwaccel_args = yaml
+            .get("hwaccel_args")
             .and_then(|args| args.as_sequence())
             .map(|seq| {
                 seq.iter()
@@ -586,21 +618,25 @@ impl ConfigParser {
     fn parse_detect_config(
         &self,
         yaml: &Mapping,
-        _warnings: &mut Vec<ParseWarning>
+        _warnings: &mut Vec<ParseWarning>,
     ) -> Result<DetectConfig, String> {
-        let detect_yaml = yaml.get("detect")
+        let detect_yaml = yaml
+            .get("detect")
             .and_then(|d| d.as_mapping())
             .ok_or("Missing detect configuration")?;
 
-        let enabled = detect_yaml.get("enabled")
+        let enabled = detect_yaml
+            .get("enabled")
             .and_then(|e| e.as_bool())
             .unwrap_or(true);
 
-        let max_labels = detect_yaml.get("max_labels")
+        let max_labels = detect_yaml
+            .get("max_labels")
             .and_then(|m| m.as_u64())
             .map(|m| m as u32);
 
-        let fps = detect_yaml.get("fps")
+        let fps = detect_yaml
+            .get("fps")
             .and_then(|f| f.as_f64())
             .map(|f| f as f32);
 
@@ -615,20 +651,22 @@ impl ConfigParser {
     fn parse_record_config(
         &self,
         yaml: &Value,
-        _warnings: &mut Vec<ParseWarning>
+        _warnings: &mut Vec<ParseWarning>,
     ) -> Result<RecordConfig, String> {
-        let record_yaml = yaml.as_mapping()
-            .ok_or("Record config must be a mapping")?;
+        let record_yaml = yaml.as_mapping().ok_or("Record config must be a mapping")?;
 
-        let enabled = record_yaml.get("enabled")
+        let enabled = record_yaml
+            .get("enabled")
             .and_then(|e| e.as_bool())
             .unwrap_or(true);
 
-        let retain_days = record_yaml.get("retain_days")
+        let retain_days = record_yaml
+            .get("retain_days")
             .and_then(|r| r.as_u64())
             .map(|r| r as u32);
 
-        let events = record_yaml.get("events")
+        let events = record_yaml
+            .get("events")
             .and_then(|e| self.parse_event_record_config(e));
 
         Ok(RecordConfig {
@@ -639,21 +677,21 @@ impl ConfigParser {
     }
 
     /// Parse event recording configuration
-    fn parse_event_record_config(
-        &self,
-        yaml: &Value
-    ) -> Option<EventRecordConfig> {
+    fn parse_event_record_config(&self, yaml: &Value) -> Option<EventRecordConfig> {
         let events_yaml = yaml.as_mapping()?;
 
-        let enabled = events_yaml.get("enabled")
+        let enabled = events_yaml
+            .get("enabled")
             .and_then(|e| e.as_bool())
             .unwrap_or(true);
 
-        let pre_capture = events_yaml.get("pre_capture")
+        let pre_capture = events_yaml
+            .get("pre_capture")
             .and_then(|p| p.as_u64())
             .map(|p| p as u32);
 
-        let post_capture = events_yaml.get("post_capture")
+        let post_capture = events_yaml
+            .get("post_capture")
             .and_then(|p| p.as_u64())
             .map(|p| p as u32);
 
@@ -668,32 +706,39 @@ impl ConfigParser {
     fn parse_snapshots_config(
         &self,
         yaml: &Value,
-        _warnings: &mut Vec<ParseWarning>
+        _warnings: &mut Vec<ParseWarning>,
     ) -> Result<SnapshotsConfig, String> {
-        let snapshots_yaml = yaml.as_mapping()
+        let snapshots_yaml = yaml
+            .as_mapping()
             .ok_or("Snapshots config must be a mapping")?;
 
-        let enabled = snapshots_yaml.get("enabled")
+        let enabled = snapshots_yaml
+            .get("enabled")
             .and_then(|e| e.as_bool())
             .unwrap_or(true);
 
-        let timestamp = snapshots_yaml.get("timestamp")
+        let timestamp = snapshots_yaml
+            .get("timestamp")
             .and_then(|t| t.as_bool())
             .unwrap_or(true);
 
-        let bounding_box = snapshots_yaml.get("bounding_box")
+        let bounding_box = snapshots_yaml
+            .get("bounding_box")
             .and_then(|b| b.as_bool())
             .unwrap_or(true);
 
-        let crop = snapshots_yaml.get("crop")
+        let crop = snapshots_yaml
+            .get("crop")
             .and_then(|c| c.as_bool())
             .unwrap_or(false);
 
-        let height = snapshots_yaml.get("height")
+        let height = snapshots_yaml
+            .get("height")
             .and_then(|h| h.as_u64())
             .map(|h| h as u32);
 
-        let retain = snapshots_yaml.get("retain")
+        let retain = snapshots_yaml
+            .get("retain")
             .and_then(|r| self.parse_snapshots_retain_config(r));
 
         Ok(SnapshotsConfig {
@@ -710,38 +755,39 @@ impl ConfigParser {
     fn parse_snapshots_retain_config(&self, yaml: &Value) -> Option<SnapshotsRetainConfig> {
         let retain_yaml = yaml.as_mapping()?;
 
-        let default = retain_yaml.get("default")
+        let default = retain_yaml
+            .get("default")
             .and_then(|d| d.as_u64())
             .map(|d| d as u32);
 
-        let objects = retain_yaml.get("objects")
+        let objects = retain_yaml
+            .get("objects")
             .and_then(|o| o.as_mapping())
             .map(|obj_map| {
-                obj_map.iter()
+                obj_map
+                    .iter()
                     .filter_map(|(k, v)| {
-                        k.as_str().and_then(|key| {
-                            v.as_u64().map(|val| (key.to_string(), val as u32))
-                        })
+                        k.as_str()
+                            .and_then(|key| v.as_u64().map(|val| (key.to_string(), val as u32)))
                     })
                     .collect()
             });
 
-        Some(SnapshotsRetainConfig {
-            default,
-            objects,
-        })
+        Some(SnapshotsRetainConfig { default, objects })
     }
 
     /// Parse objects configuration
     fn parse_objects_config(
         &self,
         yaml: &Value,
-        _warnings: &mut Vec<ParseWarning>
+        _warnings: &mut Vec<ParseWarning>,
     ) -> Result<ObjectsConfig, String> {
-        let objects_yaml = yaml.as_mapping()
+        let objects_yaml = yaml
+            .as_mapping()
             .ok_or("Objects config must be a mapping")?;
 
-        let filters = objects_yaml.get("filters")
+        let filters = objects_yaml
+            .get("filters")
             .and_then(|f| f.as_sequence())
             .map(|seq| {
                 seq.iter()
@@ -756,11 +802,13 @@ impl ConfigParser {
     fn parse_object_filter(&self, yaml: &Value) -> Option<ObjectFilter> {
         let filter_yaml = yaml.as_mapping()?;
 
-        let object = filter_yaml.get("object")
+        let object = filter_yaml
+            .get("object")
             .and_then(|o| o.as_str())?
             .to_string();
 
-        let area = filter_yaml.get("area")
+        let area = filter_yaml
+            .get("area")
             .and_then(|a| a.as_sequence())
             .map(|seq| {
                 seq.iter()
@@ -779,14 +827,18 @@ impl ConfigParser {
     }
 
     /// Parse detector configurations
-    fn parse_detectors(&self, yaml: &Value, warnings: &mut Vec<ParseWarning>) -> HashMap<String, DetectorConfig> {
+    fn parse_detectors(
+        &self,
+        yaml: &Value,
+        warnings: &mut Vec<ParseWarning>,
+    ) -> HashMap<String, DetectorConfig> {
         let mut detectors = HashMap::new();
 
         if let Some(detectors_yaml) = yaml.get("detectors").and_then(|d| d.as_mapping()) {
             for (detector_key, detector_yaml) in detectors_yaml {
                 if let (Some(detector_name), Some(detector_mapping)) =
-                    (detector_key.as_str(), detector_yaml.as_mapping()) {
-
+                    (detector_key.as_str(), detector_yaml.as_mapping())
+                {
                     match self.parse_single_detector(detector_name, detector_mapping, warnings) {
                         Ok(detector) => {
                             detectors.insert(detector_name.to_string(), detector);
@@ -807,28 +859,33 @@ impl ConfigParser {
         &self,
         name: &str,
         yaml: &Mapping,
-        _warnings: &mut Vec<ParseWarning>
+        _warnings: &mut Vec<ParseWarning>,
     ) -> Result<DetectorConfig, String> {
         // Try 'model' first, then fall back to 'type' for compatibility
-        let model = yaml.get("model")
+        let model = yaml
+            .get("model")
             .or_else(|| yaml.get("type"))
             .and_then(|m| m.as_str())
             .ok_or("Missing model/type for detector")?
             .to_string();
 
-        let model_path = yaml.get("model_path")
+        let model_path = yaml
+            .get("model_path")
             .and_then(|p| p.as_str())
             .map(|p| p.to_string());
 
-        let labelmap_path = yaml.get("labelmap_path")
+        let labelmap_path = yaml
+            .get("labelmap_path")
             .and_then(|p| p.as_str())
             .map(|p| p.to_string());
 
-        let input_tensor = yaml.get("input_tensor")
+        let input_tensor = yaml
+            .get("input_tensor")
             .and_then(|t| t.as_str())
             .map(|t| t.to_string());
 
-        let input_pixel_format = yaml.get("input_pixel_format")
+        let input_pixel_format = yaml
+            .get("input_pixel_format")
             .and_then(|f| f.as_str())
             .map(|f| f.to_string());
 
@@ -838,10 +895,8 @@ impl ConfigParser {
                 Some(s.to_string())
             } else if let Some(n) = d.as_u64() {
                 Some(n.to_string())
-            } else if let Some(n) = d.as_i64() {
-                Some(n.to_string())
             } else {
-                None
+                d.as_i64().map(|n| n.to_string())
             }
         });
 
@@ -858,19 +913,24 @@ impl ConfigParser {
 
     /// Parse global configuration
     fn parse_global_config(&self, yaml: &Value, warnings: &mut Vec<ParseWarning>) -> GlobalConfig {
-        let mqtt = yaml.get("mqtt")
+        let mqtt = yaml
+            .get("mqtt")
             .and_then(|m| self.parse_mqtt_config(m, warnings));
 
-        let database = yaml.get("database")
+        let database = yaml
+            .get("database")
             .and_then(|d| self.parse_database_config(d, warnings));
 
-        let go2rtc = yaml.get("go2rtc")
+        let go2rtc = yaml
+            .get("go2rtc")
             .and_then(|g| self.parse_go2rtc_config(g, warnings));
 
-        let ffmpeg = yaml.get("ffmpeg")
+        let ffmpeg = yaml
+            .get("ffmpeg")
             .and_then(|f| self.parse_ffmpeg_global_config(f, warnings));
 
-        let logger = yaml.get("logger")
+        let logger = yaml
+            .get("logger")
             .and_then(|l| self.parse_logger_config(l, warnings));
 
         GlobalConfig {
@@ -883,10 +943,15 @@ impl ConfigParser {
     }
 
     /// Parse MQTT configuration
-    fn parse_mqtt_config(&self, yaml: &Value, _warnings: &mut Vec<ParseWarning>) -> Option<MqttConfig> {
+    fn parse_mqtt_config(
+        &self,
+        yaml: &Value,
+        _warnings: &mut Vec<ParseWarning>,
+    ) -> Option<MqttConfig> {
         let mqtt_yaml = yaml.as_mapping()?;
 
-        let enabled = mqtt_yaml.get("enabled")
+        let enabled = mqtt_yaml
+            .get("enabled")
             .and_then(|e| e.as_bool())
             .unwrap_or(false);
 
@@ -894,31 +959,37 @@ impl ConfigParser {
             return None;
         }
 
-        let host = mqtt_yaml.get("host")
+        let host = mqtt_yaml
+            .get("host")
             .and_then(|h| h.as_str())
             .unwrap_or("localhost")
             .to_string();
 
-        let port = mqtt_yaml.get("port")
+        let port = mqtt_yaml
+            .get("port")
             .and_then(|p| p.as_u64())
             .map(|p| p as u16)
             .unwrap_or(1883);
 
-        let topic_prefix = mqtt_yaml.get("topic_prefix")
+        let topic_prefix = mqtt_yaml
+            .get("topic_prefix")
             .and_then(|t| t.as_str())
             .unwrap_or("frigate")
             .to_string();
 
-        let client_id = mqtt_yaml.get("client_id")
+        let client_id = mqtt_yaml
+            .get("client_id")
             .and_then(|c| c.as_str())
             .unwrap_or("frigate")
             .to_string();
 
-        let user = mqtt_yaml.get("user")
+        let user = mqtt_yaml
+            .get("user")
             .and_then(|u| u.as_str())
             .map(|u| u.to_string());
 
-        let password = mqtt_yaml.get("password")
+        let password = mqtt_yaml
+            .get("password")
             .and_then(|p| p.as_str())
             .map(|p| p.to_string());
 
@@ -934,8 +1005,13 @@ impl ConfigParser {
     }
 
     /// Parse database configuration
-    fn parse_database_config(&self, yaml: &Value, _warnings: &mut Vec<ParseWarning>) -> Option<DatabaseConfig> {
-        let path = yaml.as_mapping()?
+    fn parse_database_config(
+        &self,
+        yaml: &Value,
+        _warnings: &mut Vec<ParseWarning>,
+    ) -> Option<DatabaseConfig> {
+        let path = yaml
+            .as_mapping()?
             .get("path")
             .and_then(|p| p.as_str())
             .map(|p| p.to_string())?;
@@ -944,16 +1020,23 @@ impl ConfigParser {
     }
 
     /// Parse go2rtc configuration
-    fn parse_go2rtc_config(&self, yaml: &Value, _warnings: &mut Vec<ParseWarning>) -> Option<Go2rtcConfig> {
+    fn parse_go2rtc_config(
+        &self,
+        yaml: &Value,
+        _warnings: &mut Vec<ParseWarning>,
+    ) -> Option<Go2rtcConfig> {
         let go2rtc_yaml = yaml.as_mapping()?;
 
-        let streams = go2rtc_yaml.get("streams")
+        let streams = go2rtc_yaml
+            .get("streams")
             .and_then(|s| s.as_mapping())
             .map(|streams_map| {
-                streams_map.iter()
+                streams_map
+                    .iter()
                     .filter_map(|(k, v)| {
                         k.as_str().and_then(|key| {
-                            self.parse_go2rtc_stream(v).map(|stream| (key.to_string(), stream))
+                            self.parse_go2rtc_stream(v)
+                                .map(|stream| (key.to_string(), stream))
                         })
                     })
                     .collect()
@@ -967,11 +1050,13 @@ impl ConfigParser {
     fn parse_go2rtc_stream(&self, yaml: &Value) -> Option<Go2rtcStream> {
         let stream_yaml = yaml.as_mapping()?;
 
-        let rtsp = stream_yaml.get("rtsp")
+        let rtsp = stream_yaml
+            .get("rtsp")
             .and_then(|r| r.as_str())
             .map(|r| r.to_string())?;
 
-        let input = stream_yaml.get("input")
+        let input = stream_yaml
+            .get("input")
             .and_then(|i| i.as_sequence())
             .map(|seq| {
                 seq.iter()
@@ -984,10 +1069,15 @@ impl ConfigParser {
     }
 
     /// Parse global FFMPEG configuration
-    fn parse_ffmpeg_global_config(&self, yaml: &Value, _warnings: &mut Vec<ParseWarning>) -> Option<FfmpegGlobalConfig> {
+    fn parse_ffmpeg_global_config(
+        &self,
+        yaml: &Value,
+        _warnings: &mut Vec<ParseWarning>,
+    ) -> Option<FfmpegGlobalConfig> {
         let ffmpeg_yaml = yaml.as_mapping()?;
 
-        let hwaccel_args = ffmpeg_yaml.get("hwaccel_args")
+        let hwaccel_args = ffmpeg_yaml
+            .get("hwaccel_args")
             .and_then(|args| args.as_sequence())
             .map(|seq| {
                 seq.iter()
@@ -1000,18 +1090,25 @@ impl ConfigParser {
     }
 
     /// Parse logger configuration
-    fn parse_logger_config(&self, yaml: &Value, _warnings: &mut Vec<ParseWarning>) -> Option<LoggerConfig> {
+    fn parse_logger_config(
+        &self,
+        yaml: &Value,
+        _warnings: &mut Vec<ParseWarning>,
+    ) -> Option<LoggerConfig> {
         let logger_yaml = yaml.as_mapping()?;
 
-        let default = logger_yaml.get("default")
+        let default = logger_yaml
+            .get("default")
             .and_then(|d| d.as_str())
             .unwrap_or("INFO")
             .to_string();
 
-        let logs = logger_yaml.get("logs")
+        let logs = logger_yaml
+            .get("logs")
             .and_then(|l| l.as_mapping())
             .map(|logs_map| {
-                logs_map.iter()
+                logs_map
+                    .iter()
                     .filter_map(|(k, v)| {
                         k.as_str().and_then(|key| {
                             v.as_str().map(|val| (key.to_string(), val.to_string()))
@@ -1044,10 +1141,10 @@ impl ConfigParser {
         if let Some(cameras) = yaml.get("cameras").and_then(|c| c.as_mapping()) {
             for (camera_key, camera_yaml) in cameras {
                 if let (Some(camera_name), Some(camera_mapping)) =
-                    (camera_key.as_str(), camera_yaml.as_mapping()) {
-
+                    (camera_key.as_str(), camera_yaml.as_mapping())
+                {
                     // Check for deprecated fields
-                    if camera_mapping.contains_key(&Value::String("width".to_string())) {
+                    if camera_mapping.contains_key(Value::String("width".to_string())) {
                         warnings.push(ParseWarning {
                             message: format!("Camera '{}' uses deprecated 'width' field, use ffmpeg inputs instead", camera_name),
                             line_number: None,
@@ -1055,7 +1152,7 @@ impl ConfigParser {
                         });
                     }
 
-                    if camera_mapping.contains_key(&Value::String("height".to_string())) {
+                    if camera_mapping.contains_key(Value::String("height".to_string())) {
                         warnings.push(ParseWarning {
                             message: format!("Camera '{}' uses deprecated 'height' field, use ffmpeg inputs instead", camera_name),
                             line_number: None,
@@ -1083,12 +1180,13 @@ impl ConfigParser {
         if let Some(cameras) = yaml.get("cameras").and_then(|c| c.as_mapping()) {
             for (camera_key, camera_yaml) in cameras {
                 if let (Some(camera_name), Some(camera_mapping)) =
-                    (camera_key.as_str(), camera_yaml.as_mapping()) {
-
+                    (camera_key.as_str(), camera_yaml.as_mapping())
+                {
                     // Check for ffmpeg inputs
-                    let has_inputs = camera_mapping.contains_key(&Value::String("input".to_string())) ||
-                                  camera_mapping.contains_key(&Value::String("inputs".to_string())) ||
-                                  camera_mapping.contains_key(&Value::String("ffmpeg_inputs".to_string()));
+                    let has_inputs = camera_mapping
+                        .contains_key(Value::String("input".to_string()))
+                        || camera_mapping.contains_key(Value::String("inputs".to_string()))
+                        || camera_mapping.contains_key(Value::String("ffmpeg_inputs".to_string()));
 
                     if !has_inputs {
                         errors.push(ParseError {
@@ -1103,9 +1201,15 @@ impl ConfigParser {
                         if let Some(detect_enabled) = detect_config.get("enabled") {
                             if let Some(false) = detect_enabled.as_bool() {
                                 warnings.push(ParseWarning {
-                                    message: format!("Camera '{}' has detection disabled", camera_name),
+                                    message: format!(
+                                        "Camera '{}' has detection disabled",
+                                        camera_name
+                                    ),
                                     line_number: None,
-                                    suggestion: Some("Consider enabling detection or remove detect section".to_string()),
+                                    suggestion: Some(
+                                        "Consider enabling detection or remove detect section"
+                                            .to_string(),
+                                    ),
                                 });
                             }
                         }
@@ -1125,10 +1229,10 @@ impl ConfigParser {
         if let Some(detectors) = yaml.get("detectors").and_then(|d| d.as_mapping()) {
             for (detector_key, detector_yaml) in detectors {
                 if let (Some(detector_name), Some(detector_mapping)) =
-                    (detector_key.as_str(), detector_yaml.as_mapping()) {
-
+                    (detector_key.as_str(), detector_yaml.as_mapping())
+                {
                     // Check for model path
-                    if !detector_mapping.contains_key(&Value::String("model".to_string())) {
+                    if !detector_mapping.contains_key(Value::String("model".to_string())) {
                         errors.push(ParseError {
                             message: format!("Detector '{}' has no model specified", detector_name),
                             line_number: None,
@@ -1137,13 +1241,20 @@ impl ConfigParser {
                     }
 
                     // Check for device assignment
-                    if detector_mapping.contains_key(&Value::String("device".to_string())) {
-                        if let Some(device) = detector_mapping.get("device").and_then(|d| d.as_str()) {
+                    if detector_mapping.contains_key(Value::String("device".to_string())) {
+                        if let Some(device) =
+                            detector_mapping.get("device").and_then(|d| d.as_str())
+                        {
                             if device.is_empty() {
                                 warnings.push(ParseWarning {
-                                    message: format!("Detector '{}' has empty device specification", detector_name),
+                                    message: format!(
+                                        "Detector '{}' has empty device specification",
+                                        detector_name
+                                    ),
                                     line_number: None,
-                                    suggestion: Some("Specify device (e.g., 'cpu', 'gpu:0')".to_string()),
+                                    suggestion: Some(
+                                        "Specify device (e.g., 'cpu', 'gpu:0')".to_string(),
+                                    ),
                                 });
                             }
                         }

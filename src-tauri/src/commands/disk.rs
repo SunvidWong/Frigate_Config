@@ -41,7 +41,9 @@ impl From<DiskInfo> for DiskInfoResponse {
             free_formatted: info.free_formatted.clone(),
             available_formatted: info.free_formatted.clone(),
             mount_point: info.mount_point.display().to_string(),
-            filesystem: info.filesystem_type.unwrap_or_else(|| "unknown".to_string()),
+            filesystem: info
+                .filesystem_type
+                .unwrap_or_else(|| "unknown".to_string()),
             usage_percent: info.usage_percent,
             is_low_space,
         }
@@ -129,7 +131,12 @@ pub async fn create_volume_mapping(
         "cache" => VolumeMappingType::Cache,
         "config" => VolumeMappingType::Config,
         "custom" => VolumeMappingType::Custom,
-        _ => return Err(AppError::Validation(format!("Invalid mapping type: {}", mapping_type))),
+        _ => {
+            return Err(AppError::Validation(format!(
+                "Invalid mapping type: {}",
+                mapping_type
+            )))
+        }
     };
 
     let mut mapping = VolumeMapping::new(host_path_buf, container_path, mapping_type_enum);
@@ -143,9 +150,7 @@ pub async fn create_volume_mapping(
     }
 
     // Validate the mapping
-    mapping
-        .validate()
-        .map_err(|e| AppError::Validation(e))?;
+    mapping.validate().map_err(AppError::Validation)?;
 
     Ok(mapping)
 }

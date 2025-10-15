@@ -1,7 +1,7 @@
 // Error handling for Tauri commands
 // Provides a unified error type that can be serialized to the frontend
 
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 /// Application error type that can be sent to the frontend

@@ -121,8 +121,9 @@ impl SnapshotManager {
     /// Initialize snapshot directory
     fn initialize(&self) -> Result<(), AppError> {
         if !self.snapshots_dir.exists() {
-            std::fs::create_dir_all(&self.snapshots_dir)
-                .map_err(|e| AppError::Config(format!("Failed to create snapshots directory: {}", e)))?;
+            std::fs::create_dir_all(&self.snapshots_dir).map_err(|e| {
+                AppError::Config(format!("Failed to create snapshots directory: {}", e))
+            })?;
         }
 
         // Create subdirectories
@@ -130,12 +131,16 @@ impl SnapshotManager {
         for subdir in &subdirs {
             let path = self.snapshots_dir.join(subdir);
             if !path.exists() {
-                std::fs::create_dir_all(&path)
-                    .map_err(|e| AppError::Config(format!("Failed to create directory {}: {}", subdir, e)))?;
+                std::fs::create_dir_all(&path).map_err(|e| {
+                    AppError::Config(format!("Failed to create directory {}: {}", subdir, e))
+                })?;
             }
         }
 
-        info!("Initialized snapshot directory: {}", self.snapshots_dir.display());
+        info!(
+            "Initialized snapshot directory: {}",
+            self.snapshots_dir.display()
+        );
         Ok(())
     }
 
@@ -147,7 +152,7 @@ impl SnapshotManager {
     ) -> Result<ConfigurationSnapshot, AppError> {
         info!("Creating configuration snapshot: {:?}", options.description);
 
-        let timestamp = Utc::now();
+        let _timestamp = Utc::now();
         let version = self.get_next_version()?;
 
         // Generate YAML content
@@ -155,7 +160,7 @@ impl SnapshotManager {
             .map_err(|e| AppError::Config(format!("Failed to serialize config: {}", e)))?;
 
         // Calculate checksum
-        let checksum = ConfigurationSnapshot::calculate_checksum(&yaml_content);
+        let _checksum = ConfigurationSnapshot::calculate_checksum(&yaml_content);
 
         // Create snapshot ID
         let snapshot_id = format!("snapshot_{}", version);
@@ -183,23 +188,34 @@ impl SnapshotManager {
         // Cleanup old snapshots if necessary
         self.cleanup_old_snapshots().await?;
 
-        info!("Created snapshot {} at {}", snapshot.id, snapshot_path.display());
+        info!(
+            "Created snapshot {} at {}",
+            snapshot.id,
+            snapshot_path.display()
+        );
         Ok(snapshot)
     }
 
     /// Load a configuration snapshot
-    pub async fn load_snapshot(&self, snapshot_id: &str) -> Result<ConfigurationSnapshot, AppError> {
+    pub async fn load_snapshot(
+        &self,
+        snapshot_id: &str,
+    ) -> Result<ConfigurationSnapshot, AppError> {
         info!("Loading snapshot: {}", snapshot_id);
 
         let snapshot_path = self.get_snapshot_path(snapshot_id)?;
 
         if !snapshot_path.exists() {
-            return Err(AppError::Config(format!("Snapshot {} not found", snapshot_id)));
+            return Err(AppError::Config(format!(
+                "Snapshot {} not found",
+                snapshot_id
+            )));
         }
 
         // Read metadata file
         let metadata_path = self.get_metadata_path(snapshot_id)?;
-        let metadata_content = tokio::fs::read_to_string(&metadata_path).await
+        let metadata_content = tokio::fs::read_to_string(&metadata_path)
+            .await
             .map_err(|e| AppError::Config(format!("Failed to read snapshot metadata: {}", e)))?;
 
         let mut snapshot: ConfigurationSnapshot = serde_json::from_str(&metadata_content)
@@ -207,13 +223,18 @@ impl SnapshotManager {
 
         // Read YAML content
         let config_path = self.get_config_path(snapshot_id)?;
-        let yaml_content = tokio::fs::read_to_string(&config_path).await
+        let yaml_content = tokio::fs::read_to_string(&config_path)
+            .await
             .map_err(|e| AppError::Config(format!("Failed to read config content: {}", e)))?;
 
         // Update snapshot with actual content
         snapshot.yaml_content = yaml_content;
 
-        info!("Loaded snapshot {} with {} bytes", snapshot_id, snapshot.yaml_content.len());
+        info!(
+            "Loaded snapshot {} with {} bytes",
+            snapshot_id,
+            snapshot.yaml_content.len()
+        );
         Ok(snapshot)
     }
 
@@ -221,16 +242,20 @@ impl SnapshotManager {
     pub async fn list_snapshots(&self) -> Result<Vec<ConfigurationSnapshot>, AppError> {
         let mut snapshots = Vec::new();
 
-        let entries = tokio::fs::read_dir(&self.snapshots_dir.join("metadata")).await
+        let entries = tokio::fs::read_dir(&self.snapshots_dir.join("metadata"))
+            .await
             .map_err(|e| AppError::Config(format!("Failed to read snapshots directory: {}", e)))?;
 
         let mut entry_stream = entries;
-        while let Some(entry) = entry_stream.next_entry().await
-            .map_err(|e| AppError::Config(format!("Failed to read directory entry: {}", e)))? {
-
+        while let Some(entry) = entry_stream
+            .next_entry()
+            .await
+            .map_err(|e| AppError::Config(format!("Failed to read directory entry: {}", e)))?
+        {
             let path = entry.path();
             if path.extension().and_then(|s| s.to_str()) == Some("json") {
-                let snapshot_id = path.file_stem()
+                let snapshot_id = path
+                    .file_stem()
                     .and_then(|s| s.to_str())
                     .unwrap_or_default();
 
@@ -259,8 +284,9 @@ impl SnapshotManager {
 
         for path in &paths {
             if path.exists() {
-                tokio::fs::remove_file(path).await
-                    .map_err(|e| AppError::Config(format!("Failed to delete {}: {}", path.display(), e)))?;
+                tokio::fs::remove_file(path).await.map_err(|e| {
+                    AppError::Config(format!("Failed to delete {}: {}", path.display(), e))
+                })?;
             }
         }
 
@@ -275,7 +301,11 @@ impl SnapshotManager {
         target_path: &Path,
         options: RestoreOptions,
     ) -> Result<RestoreResult, AppError> {
-        info!("Restoring from snapshot {} to {}", snapshot_id, target_path.display());
+        info!(
+            "Restoring from snapshot {} to {}",
+            snapshot_id,
+            target_path.display()
+        );
 
         // Load the snapshot
         let snapshot = self.load_snapshot(snapshot_id).await?;
@@ -283,23 +313,27 @@ impl SnapshotManager {
         // Validate snapshot if requested
         if options.validate {
             if let Err(e) = self.validate_snapshot(&snapshot).await {
-                return Err(AppError::Config(format!("Snapshot validation failed: {}", e)));
+                return Err(AppError::Config(format!(
+                    "Snapshot validation failed: {}",
+                    e
+                )));
             }
         }
 
         // Create backup of current config if requested
-        if options.backup_before_restore {
-            if target_path.exists() {
-                let backup_reason = format!("Before restoring from snapshot {}", snapshot_id);
-                self.create_backup_of_file(target_path, &backup_reason).await?;
-            }
+        if options.backup_before_restore && target_path.exists() {
+            let backup_reason = format!("Before restoring from snapshot {}", snapshot_id);
+            self.create_backup_of_file(target_path, &backup_reason)
+                .await?;
         }
 
         // Perform restoration
         let restore_result = if options.merge_changes {
-            self.merge_restore_from_snapshot(&snapshot, target_path).await?
+            self.merge_restore_from_snapshot(&snapshot, target_path)
+                .await?
         } else {
-            self.replace_restore_from_snapshot(&snapshot, target_path).await?
+            self.replace_restore_from_snapshot(&snapshot, target_path)
+                .await?
         };
 
         info!("Successfully restored from snapshot {}", snapshot_id);
@@ -312,7 +346,10 @@ impl SnapshotManager {
         snapshot_a_id: &str,
         snapshot_b_id: &str,
     ) -> Result<SnapshotComparison, AppError> {
-        info!("Comparing snapshots {} and {}", snapshot_a_id, snapshot_b_id);
+        info!(
+            "Comparing snapshots {} and {}",
+            snapshot_a_id, snapshot_b_id
+        );
 
         let snapshot_a = self.load_snapshot(snapshot_a_id).await?;
         let snapshot_b = self.load_snapshot(snapshot_b_id).await?;
@@ -352,14 +389,16 @@ impl SnapshotManager {
 
         // Save YAML content
         let config_path = self.get_config_path(snapshot_id)?;
-        tokio::fs::write(&config_path, yaml_content).await
+        tokio::fs::write(&config_path, yaml_content)
+            .await
             .map_err(|e| AppError::Config(format!("Failed to write config: {}", e)))?;
 
         // Save metadata
         let metadata_path = self.get_metadata_path(snapshot_id)?;
         let metadata_json = serde_json::to_string(snapshot)
             .map_err(|e| AppError::Config(format!("Failed to serialize metadata: {}", e)))?;
-        tokio::fs::write(&metadata_path, metadata_json).await
+        tokio::fs::write(&metadata_path, metadata_json)
+            .await
             .map_err(|e| AppError::Config(format!("Failed to write metadata: {}", e)))?;
 
         Ok(config_path)
@@ -367,17 +406,26 @@ impl SnapshotManager {
 
     /// Get snapshot file path
     fn get_snapshot_path(&self, snapshot_id: &str) -> Result<PathBuf, AppError> {
-        Ok(self.snapshots_dir.join("configs").join(format!("{}.yaml", snapshot_id)))
+        Ok(self
+            .snapshots_dir
+            .join("configs")
+            .join(format!("{}.yaml", snapshot_id)))
     }
 
     /// Get metadata file path
     fn get_metadata_path(&self, snapshot_id: &str) -> Result<PathBuf, AppError> {
-        Ok(self.snapshots_dir.join("metadata").join(format!("{}.json", snapshot_id)))
+        Ok(self
+            .snapshots_dir
+            .join("metadata")
+            .join(format!("{}.json", snapshot_id)))
     }
 
     /// Get config file path
     fn get_config_path(&self, snapshot_id: &str) -> Result<PathBuf, AppError> {
-        Ok(self.snapshots_dir.join("configs").join(format!("{}.yaml", snapshot_id)))
+        Ok(self
+            .snapshots_dir
+            .join("configs")
+            .join(format!("{}.yaml", snapshot_id)))
     }
 
     /// Cleanup old snapshots
@@ -406,7 +454,9 @@ impl SnapshotManager {
     async fn validate_snapshot(&self, snapshot: &ConfigurationSnapshot) -> Result<(), AppError> {
         // Verify checksum
         if !snapshot.verify_checksum() {
-            return Err(AppError::Config("Snapshot checksum verification failed".to_string()));
+            return Err(AppError::Config(
+                "Snapshot checksum verification failed".to_string(),
+            ));
         }
 
         // Validate YAML structure
@@ -415,18 +465,24 @@ impl SnapshotManager {
 
         // Validate Frigate-specific structure
         let parser = ConfigParser::new();
-        let _ = parser.parse_content(snapshot.yaml_content.clone(), "validation.yaml".to_string())?;
+        let _ =
+            parser.parse_content(snapshot.yaml_content.clone(), "validation.yaml".to_string())?;
 
         Ok(())
     }
 
     /// Create backup of existing file
-    async fn create_backup_of_file(&self, file_path: &Path, reason: &str) -> Result<PathBuf, AppError> {
+    async fn create_backup_of_file(
+        &self,
+        file_path: &Path,
+        reason: &str,
+    ) -> Result<PathBuf, AppError> {
         let timestamp = Utc::now().format("%Y%m%d_%H%M%S");
         let backup_name = format!("backup_{}.yaml", timestamp);
         let backup_path = self.snapshots_dir.join("backups").join(backup_name);
 
-        tokio::fs::copy(file_path, &backup_path).await
+        tokio::fs::copy(file_path, &backup_path)
+            .await
             .map_err(|e| AppError::Config(format!("Failed to create backup: {}", e)))?;
 
         // Create backup metadata
@@ -435,14 +491,19 @@ impl SnapshotManager {
             "backup_path": backup_path,
             "reason": reason,
             "created_at": Utc::now().to_rfc3339(),
-            "size": backup_path.metadata().ok().and_then(|m| Some(m.len())).unwrap_or(0)
+            "size": backup_path.metadata().ok().map(|m| m.len()).unwrap_or(0)
         });
 
         let metadata_path = backup_path.with_extension("json");
-        tokio::fs::write(&metadata_path, backup_info.to_string()).await
+        tokio::fs::write(&metadata_path, backup_info.to_string())
+            .await
             .map_err(|e| AppError::Config(format!("Failed to write backup metadata: {}", e)))?;
 
-        info!("Created backup at {} for reason: {}", backup_path.display(), reason);
+        info!(
+            "Created backup at {} for reason: {}",
+            backup_path.display(),
+            reason
+        );
         Ok(backup_path)
     }
 
@@ -453,7 +514,8 @@ impl SnapshotManager {
         target_path: &Path,
     ) -> Result<RestoreResult, AppError> {
         // Write snapshot content to target file
-        tokio::fs::write(target_path, &snapshot.yaml_content).await
+        tokio::fs::write(target_path, &snapshot.yaml_content)
+            .await
             .map_err(|e| AppError::Config(format!("Failed to restore config: {}", e)))?;
 
         Ok(RestoreResult {
@@ -471,7 +533,8 @@ impl SnapshotManager {
         target_path: &Path,
     ) -> Result<RestoreResult, AppError> {
         // For now, implement as replace (merge would require more complex logic)
-        self.replace_restore_from_snapshot(snapshot, target_path).await
+        self.replace_restore_from_snapshot(snapshot, target_path)
+            .await
     }
 
     /// Compare two YAML values recursively
@@ -564,8 +627,12 @@ impl SnapshotManager {
                             change_type: ChangeType::Modified,
                             value_a: Some(value_a.clone()),
                             value_b: Some(value_b.clone()),
-                            description: format!("Array '{}' length changed from {} to {}",
-                                          current_path, seq_a.len(), seq_b.len()),
+                            description: format!(
+                                "Array '{}' length changed from {} to {}",
+                                current_path,
+                                seq_a.len(),
+                                seq_b.len()
+                            ),
                         });
                     } else {
                         differences.push(ConfigDifference {
@@ -596,11 +663,17 @@ impl SnapshotManager {
     /// Check if two values have different types
     fn is_different_type(&self, a: &Value, b: &Value) -> bool {
         use serde_yaml::Value::*;
-        !matches!((a, b), (Mapping(_), Mapping(_)) | (Sequence(_), Sequence(_)))
+        !matches!(
+            (a, b),
+            (Mapping(_), Mapping(_)) | (Sequence(_), Sequence(_))
+        )
     }
 
     /// Calculate comparison statistics
-    fn calculate_comparison_statistics(&self, differences: &[ConfigDifference]) -> ComparisonStatistics {
+    fn calculate_comparison_statistics(
+        &self,
+        differences: &[ConfigDifference],
+    ) -> ComparisonStatistics {
         let mut stats = ComparisonStatistics {
             total_fields: 0, // Would need to be calculated from original YAML
             differences_count: differences.len(),
@@ -632,12 +705,11 @@ impl SnapshotManager {
     /// Count fields in YAML value
     fn count_value_fields(&self, value: &Value) -> usize {
         match value {
-            Value::Mapping(mapping) => {
-                mapping.iter().map(|(k, v)| self.count_value_fields(k) + self.count_value_fields(v)).sum()
-            }
-            Value::Sequence(sequence) => {
-                sequence.iter().map(|v| self.count_value_fields(v)).sum()
-            }
+            Value::Mapping(mapping) => mapping
+                .iter()
+                .map(|(k, v)| self.count_value_fields(k) + self.count_value_fields(v))
+                .sum(),
+            Value::Sequence(sequence) => sequence.iter().map(|v| self.count_value_fields(v)).sum(),
             _ => 1,
         }
     }
@@ -646,7 +718,8 @@ impl SnapshotManager {
     pub async fn get_statistics(&self) -> Result<SnapshotStatistics, AppError> {
         let snapshots = self.list_snapshots().await?;
 
-        let total_size = snapshots.iter()
+        let total_size = snapshots
+            .iter()
             .map(|s| s.yaml_content.len())
             .sum::<usize>();
 

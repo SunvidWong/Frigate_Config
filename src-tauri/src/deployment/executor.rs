@@ -3,7 +3,6 @@
 // REQUIREMENT: FR-038, FR-042 (Deployment Module - Command execution and log capture)
 
 use std::collections::HashMap;
-use std::io::BufRead;
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use std::time::{Duration, SystemTime};
@@ -152,10 +151,7 @@ fn execute_docker_compose(request: &DeploymentRequest) -> Result<DeploymentResul
         .map_err(|e| format!("Failed to write docker-compose.yml: {}", e))?;
 
     // Execute docker-compose up
-    let command_str = format!(
-        "docker-compose -f {} up -d",
-        compose_file.display()
-    );
+    let command_str = format!("docker-compose -f {} up -d", compose_file.display());
 
     execute_shell_command(&command_str)
 }
@@ -195,7 +191,7 @@ fn execute_shell_command(command: &str) -> Result<DeploymentResult, String> {
 /// Get deployment status for a container
 pub fn get_deployment_status(container_id: &str) -> Result<DeploymentStatus, String> {
     let output = Command::new("docker")
-        .args(&["inspect", "--format", "{{.State.Status}}", container_id])
+        .args(["inspect", "--format", "{{.State.Status}}", container_id])
         .output()
         .map_err(|e| format!("Failed to get container status: {}", e))?;
 
@@ -220,7 +216,7 @@ pub fn get_deployment_status(container_id: &str) -> Result<DeploymentStatus, Str
 /// Stop a deployment
 pub fn stop_deployment(container_id: &str) -> Result<(), String> {
     let output = Command::new("docker")
-        .args(&["stop", container_id])
+        .args(["stop", container_id])
         .output()
         .map_err(|e| format!("Failed to stop container: {}", e))?;
 
@@ -232,18 +228,13 @@ pub fn stop_deployment(container_id: &str) -> Result<(), String> {
     }
 
     // Also remove the container
-    let _ = Command::new("docker")
-        .args(&["rm", container_id])
-        .output();
+    let _ = Command::new("docker").args(["rm", container_id]).output();
 
     Ok(())
 }
 
 /// Get container logs
-pub fn get_container_logs(
-    container_id: &str,
-    lines: Option<usize>,
-) -> Result<Vec<String>, String> {
+pub fn get_container_logs(container_id: &str, lines: Option<usize>) -> Result<Vec<String>, String> {
     let mut cmd = Command::new("docker");
     cmd.arg("logs");
 
@@ -279,10 +270,7 @@ pub fn stream_container_logs(container_id: &str) -> Result<std::vec::IntoIter<St
 }
 
 /// Wait for container to be ready
-pub fn wait_for_container_ready(
-    container_id: &str,
-    timeout: Duration,
-) -> Result<bool, String> {
+pub fn wait_for_container_ready(container_id: &str, timeout: Duration) -> Result<bool, String> {
     let start = SystemTime::now();
 
     loop {
@@ -315,8 +303,7 @@ pub fn save_deployment_state(state: &DeploymentState) -> Result<(), String> {
     let json = serde_json::to_string_pretty(state)
         .map_err(|e| format!("Failed to serialize state: {}", e))?;
 
-    std::fs::write(&state_file, json)
-        .map_err(|e| format!("Failed to write state file: {}", e))?;
+    std::fs::write(&state_file, json).map_err(|e| format!("Failed to write state file: {}", e))?;
 
     Ok(())
 }
@@ -334,8 +321,8 @@ pub fn load_deployment_state() -> Result<Option<DeploymentState>, String> {
     let json = std::fs::read_to_string(&state_file)
         .map_err(|e| format!("Failed to read state file: {}", e))?;
 
-    let state: DeploymentState = serde_json::from_str(&json)
-        .map_err(|e| format!("Failed to deserialize state: {}", e))?;
+    let state: DeploymentState =
+        serde_json::from_str(&json).map_err(|e| format!("Failed to deserialize state: {}", e))?;
 
     Ok(Some(state))
 }

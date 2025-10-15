@@ -21,12 +21,10 @@ impl Database {
 
         // Ensure parent directory exists
         if let Some(parent) = db_path.parent() {
-            std::fs::create_dir_all(parent)
-                .context("Failed to create database directory")?;
+            std::fs::create_dir_all(parent).context("Failed to create database directory")?;
         }
 
-        let conn = Connection::open(&db_path)
-            .context("Failed to open database connection")?;
+        let conn = Connection::open(&db_path).context("Failed to open database connection")?;
 
         // Enable foreign keys
         conn.execute("PRAGMA foreign_keys = ON", [])
@@ -43,7 +41,8 @@ impl Database {
     fn init_schema(&self) -> Result<()> {
         let schema_sql = include_str!("schema.sql");
 
-        self.conn.execute_batch(schema_sql)
+        self.conn
+            .execute_batch(schema_sql)
             .context("Failed to execute schema initialization")?;
 
         info!("Database schema initialized");
@@ -58,11 +57,14 @@ impl Database {
     /// Run database migrations if needed
     pub fn migrate(&self) -> Result<()> {
         // Check current schema version
-        let version: i32 = self.conn.query_row(
-            "SELECT value FROM app_metadata WHERE key = 'schema_version'",
-            [],
-            |row| row.get(0)
-        ).unwrap_or(0);
+        let version: i32 = self
+            .conn
+            .query_row(
+                "SELECT value FROM app_metadata WHERE key = 'schema_version'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap_or(0);
 
         info!("Current schema version: {}", version);
 
@@ -79,13 +81,11 @@ impl Database {
     /// Get the application data directory
     /// Defaults to ~/.frigate-config-tool/
     pub fn get_app_data_dir() -> Result<PathBuf> {
-        let home = dirs::home_dir()
-            .context("Failed to get home directory")?;
+        let home = dirs::home_dir().context("Failed to get home directory")?;
 
         let app_dir = home.join(".frigate-config-tool");
 
-        std::fs::create_dir_all(&app_dir)
-            .context("Failed to create app data directory")?;
+        std::fs::create_dir_all(&app_dir).context("Failed to create app data directory")?;
 
         Ok(app_dir)
     }
@@ -110,14 +110,14 @@ mod tests {
         let db = Database::new(db_path).unwrap();
 
         // Verify tables exist
-        let tables: Vec<String> = db.conn.prepare(
-            "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
-        )
-        .unwrap()
-        .query_map([], |row| row.get(0))
-        .unwrap()
-        .collect::<Result<Vec<_>, _>>()
-        .unwrap();
+        let tables: Vec<String> = db
+            .conn
+            .prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
+            .unwrap()
+            .query_map([], |row| row.get(0))
+            .unwrap()
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap();
 
         assert!(tables.contains(&"config_snapshots".to_string()));
         assert!(tables.contains(&"deployment_states".to_string()));
@@ -132,11 +132,10 @@ mod tests {
 
         let db = Database::new(db_path).unwrap();
 
-        let fk_enabled: i32 = db.conn.query_row(
-            "PRAGMA foreign_keys",
-            [],
-            |row| row.get(0)
-        ).unwrap();
+        let fk_enabled: i32 = db
+            .conn
+            .query_row("PRAGMA foreign_keys", [], |row| row.get(0))
+            .unwrap();
 
         assert_eq!(fk_enabled, 1);
     }

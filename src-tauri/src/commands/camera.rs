@@ -1,13 +1,14 @@
 // Camera discovery commands
 
 use crate::error::AppError;
-use crate::network::{DiscoveredCamera, ScanConfig, scan_network, guess_network_range, get_local_ip};
+use crate::network::{
+    get_local_ip, guess_network_range, scan_network, DiscoveredCamera, ScanConfig,
+};
 
 /// Get local network IP
 #[tauri::command]
 pub async fn get_local_network_ip() -> Result<String, AppError> {
-    get_local_ip()
-        .ok_or_else(|| AppError::Network("Failed to get local IP".to_string()))
+    get_local_ip().ok_or_else(|| AppError::Network("Failed to get local IP".to_string()))
 }
 
 /// Guess network range based on local IP
@@ -30,18 +31,14 @@ pub async fn scan_for_cameras(
         concurrency: 50,
     };
 
-    scan_network(config)
-        .await
-        .map_err(|e| AppError::Network(e))
+    scan_network(config).await.map_err(AppError::Network)
 }
 
 /// Quick scan with default settings
 #[tauri::command]
 pub async fn quick_scan_cameras() -> Result<Vec<DiscoveredCamera>, AppError> {
     let config = ScanConfig::default();
-    scan_network(config)
-        .await
-        .map_err(|e| AppError::Network(e))
+    scan_network(config).await.map_err(AppError::Network)
 }
 
 #[cfg(test)]

@@ -29,14 +29,21 @@ detectors:
     let parser = ConfigParser::new();
     let result = parser.parse_content(yaml_content.to_string(), "test.yaml".to_string());
 
-    assert!(result.is_ok(), "Failed to parse valid config: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "Failed to parse valid config: {:?}",
+        result.err()
+    );
 
     let parse_result = result.unwrap();
     let config = parse_result.config;
 
     // Verify cameras parsed correctly
     assert_eq!(config.cameras.len(), 1, "Should have 1 camera");
-    assert!(config.cameras.contains_key("front_door"), "Should contain front_door camera");
+    assert!(
+        config.cameras.contains_key("front_door"),
+        "Should contain front_door camera"
+    );
 
     let camera = config.cameras.get("front_door").unwrap();
     assert_eq!(camera.name, "front_door");
@@ -46,7 +53,10 @@ detectors:
 
     // Verify detectors parsed correctly
     assert_eq!(config.detectors.len(), 1, "Should have 1 detector");
-    assert!(config.detectors.contains_key("cpu1"), "Should contain cpu1 detector");
+    assert!(
+        config.detectors.contains_key("cpu1"),
+        "Should contain cpu1 detector"
+    );
 
     let detector = config.detectors.get("cpu1").unwrap();
     assert_eq!(detector.model, "yolov8n");
@@ -85,17 +95,35 @@ detectors:
     let config = parse_result.config;
 
     // Verify comments were extracted
-    assert!(config.metadata.comments.len() > 0, "Comments should be preserved");
+    assert!(
+        config.metadata.comments.len() > 0,
+        "Comments should be preserved"
+    );
 
     // Check for specific comments
-    let comment_texts: Vec<String> = config.metadata.comments
+    let comment_texts: Vec<String> = config
+        .metadata
+        .comments
         .iter()
         .map(|c| c.content.clone())
         .collect();
 
-    assert!(comment_texts.iter().any(|c| c.contains("header comment")), "Should find header comment");
-    assert!(comment_texts.iter().any(|c| c.contains("Camera configuration")), "Should find camera section comment");
-    assert!(comment_texts.iter().any(|c| c.contains("Front door camera")), "Should find inline camera comment");
+    assert!(
+        comment_texts.iter().any(|c| c.contains("header comment")),
+        "Should find header comment"
+    );
+    assert!(
+        comment_texts
+            .iter()
+            .any(|c| c.contains("Camera configuration")),
+        "Should find camera section comment"
+    );
+    assert!(
+        comment_texts
+            .iter()
+            .any(|c| c.contains("Front door camera")),
+        "Should find inline camera comment"
+    );
 
     // Verify config still parses correctly despite comments
     assert_eq!(config.cameras.len(), 1);
@@ -163,7 +191,10 @@ detectors:
     // Check garage (disabled)
     let garage = config.cameras.get("garage").unwrap();
     assert!(!garage.enabled, "Garage camera should be disabled");
-    assert!(!garage.detect.enabled, "Garage detection should be disabled");
+    assert!(
+        !garage.detect.enabled,
+        "Garage detection should be disabled"
+    );
 }
 
 #[test]
@@ -256,7 +287,10 @@ detectors:
     let config = parse_result.config;
 
     // Verify MQTT configuration
-    assert!(config.global_config.mqtt.is_some(), "MQTT config should be present");
+    assert!(
+        config.global_config.mqtt.is_some(),
+        "MQTT config should be present"
+    );
 
     let mqtt = config.global_config.mqtt.as_ref().unwrap();
     assert!(mqtt.enabled);
@@ -287,7 +321,10 @@ cameras:
     assert!(result.is_err(), "Should fail on invalid YAML");
 
     let err = result.err().unwrap();
-    assert!(err.to_string().contains("Invalid YAML"), "Error should mention invalid YAML");
+    assert!(
+        err.to_string().contains("Invalid YAML"),
+        "Error should mention invalid YAML"
+    );
 }
 
 #[test]
@@ -315,7 +352,11 @@ detectors:
     let parse_result = result.unwrap();
 
     // Camera should fail to parse due to missing inputs
-    assert_eq!(parse_result.config.cameras.len(), 0, "Camera should not parse without inputs");
+    assert_eq!(
+        parse_result.config.cameras.len(),
+        0,
+        "Camera should not parse without inputs"
+    );
 }
 
 #[test]
@@ -377,7 +418,10 @@ detectors:
     assert_eq!(events.post_capture, Some(10));
 
     // Verify snapshots config
-    assert!(camera.snapshots.is_some(), "Snapshots config should be present");
+    assert!(
+        camera.snapshots.is_some(),
+        "Snapshots config should be present"
+    );
     let snapshots = camera.snapshots.as_ref().unwrap();
     assert!(snapshots.enabled);
     assert!(snapshots.timestamp);
@@ -420,10 +464,15 @@ detectors:
     let parse_result = result.unwrap();
     let config = parse_result.config;
 
-    assert!(config.metadata.comments.len() >= 5, "Should have at least 5 comments");
+    assert!(
+        config.metadata.comments.len() >= 5,
+        "Should have at least 5 comments"
+    );
 
     // Check comment line numbers
-    let comment_lines: Vec<usize> = config.metadata.comments
+    let comment_lines: Vec<usize> = config
+        .metadata
+        .comments
         .iter()
         .map(|c| c.line_number)
         .collect();
@@ -462,8 +511,14 @@ detectors:
     let config = parse_result.config;
 
     // Should detect manual edits due to TODO and MANUAL markers
-    assert!(config.metadata.has_manual_edits, "Should detect manual edits");
-    assert!(config.metadata.manual_edit_lines.len() > 0, "Should have manual edit line numbers");
+    assert!(
+        config.metadata.has_manual_edits,
+        "Should detect manual edits"
+    );
+    assert!(
+        config.metadata.manual_edit_lines.len() > 0,
+        "Should have manual edit line numbers"
+    );
 }
 
 #[test]
@@ -547,8 +602,14 @@ detectors:
     let config = parse_result.config;
 
     // Raw content should be preserved exactly
-    assert_eq!(config.raw_content, yaml_content, "Raw content should be preserved exactly");
-    assert!(config.raw_content.contains("# Important comment"), "Comments should be in raw content");
+    assert_eq!(
+        config.raw_content, yaml_content,
+        "Raw content should be preserved exactly"
+    );
+    assert!(
+        config.raw_content.contains("# Important comment"),
+        "Comments should be in raw content"
+    );
 }
 
 #[test]
@@ -558,9 +619,19 @@ fn test_default_template() {
     assert!(config.raw_content.contains("version"));
     assert!(config.raw_content.contains("cameras"));
     assert!(config.raw_content.contains("detectors"));
-    assert!(config.raw_content.contains("# Frigate Configuration Template"));
+    assert!(config
+        .raw_content
+        .contains("# Frigate Configuration Template"));
 
     // Verify it parses correctly
-    assert_eq!(config.cameras.len(), 0, "Default template should have no cameras configured");
-    assert_eq!(config.detectors.len(), 1, "Default template should have CPU detector");
+    assert_eq!(
+        config.cameras.len(),
+        0,
+        "Default template should have no cameras configured"
+    );
+    assert_eq!(
+        config.detectors.len(),
+        1,
+        "Default template should have CPU detector"
+    );
 }

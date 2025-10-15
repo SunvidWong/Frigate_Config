@@ -44,8 +44,14 @@ detectors:
 "#;
 
     let parser = ConfigParser::new();
-    let ui_config = parser.parse_content(ui_yaml.to_string(), "ui.yaml".to_string()).unwrap().config;
-    let manual_config = parser.parse_content(manual_yaml.to_string(), "manual.yaml".to_string()).unwrap().config;
+    let ui_config = parser
+        .parse_content(ui_yaml.to_string(), "ui.yaml".to_string())
+        .unwrap()
+        .config;
+    let manual_config = parser
+        .parse_content(manual_yaml.to_string(), "manual.yaml".to_string())
+        .unwrap()
+        .config;
 
     let merger = ConfigMerger::new(); // Default: prefer_ui_values = true
     let result = merger.merge_configurations(&ui_config, &manual_config);
@@ -56,7 +62,11 @@ detectors:
     // Merged config should prefer UI value for enabled
     let front_door = merge_result.merged_config.cameras.get("front_door");
     assert!(front_door.is_some());
-    assert_eq!(front_door.unwrap().enabled, true, "Should use UI enabled value (true)");
+    assert_eq!(
+        front_door.unwrap().enabled,
+        true,
+        "Should use UI enabled value (true)"
+    );
 }
 
 #[test]
@@ -97,8 +107,14 @@ detectors:
 "#;
 
     let parser = ConfigParser::new();
-    let ui_config = parser.parse_content(ui_yaml.to_string(), "ui.yaml".to_string()).unwrap().config;
-    let manual_config = parser.parse_content(manual_yaml.to_string(), "manual.yaml".to_string()).unwrap().config;
+    let ui_config = parser
+        .parse_content(ui_yaml.to_string(), "ui.yaml".to_string())
+        .unwrap()
+        .config;
+    let manual_config = parser
+        .parse_content(manual_yaml.to_string(), "manual.yaml".to_string())
+        .unwrap()
+        .config;
 
     let merger = ConfigMerger::new();
     let result = merger.merge_configurations(&ui_config, &manual_config);
@@ -109,7 +125,10 @@ detectors:
     // Should have both cameras
     assert_eq!(merge_result.merged_config.cameras.len(), 2);
     assert!(merge_result.merged_config.cameras.contains_key("ui_camera"));
-    assert!(merge_result.merged_config.cameras.contains_key("manual_camera"));
+    assert!(merge_result
+        .merged_config
+        .cameras
+        .contains_key("manual_camera"));
 }
 
 #[test]
@@ -154,8 +173,14 @@ detectors:
 "#;
 
     let parser = ConfigParser::new();
-    let ui_config = parser.parse_content(ui_yaml.to_string(), "ui.yaml".to_string()).unwrap().config;
-    let manual_config = parser.parse_content(manual_yaml.to_string(), "manual.yaml".to_string()).unwrap().config;
+    let ui_config = parser
+        .parse_content(ui_yaml.to_string(), "ui.yaml".to_string())
+        .unwrap()
+        .config;
+    let manual_config = parser
+        .parse_content(manual_yaml.to_string(), "manual.yaml".to_string())
+        .unwrap()
+        .config;
 
     let merger = ConfigMerger::new();
     let result = merger.merge_configurations(&ui_config, &manual_config);
@@ -212,8 +237,14 @@ detectors:
 "#;
 
     let parser = ConfigParser::new();
-    let ui_config = parser.parse_content(ui_yaml.to_string(), "ui.yaml".to_string()).unwrap().config;
-    let manual_config = parser.parse_content(manual_yaml.to_string(), "manual.yaml".to_string()).unwrap().config;
+    let ui_config = parser
+        .parse_content(ui_yaml.to_string(), "ui.yaml".to_string())
+        .unwrap()
+        .config;
+    let manual_config = parser
+        .parse_content(manual_yaml.to_string(), "manual.yaml".to_string())
+        .unwrap()
+        .config;
 
     let merger = ConfigMerger::new();
     let result = merger.merge_configurations(&ui_config, &manual_config);
@@ -223,7 +254,12 @@ detectors:
 
     // Should preserve MQTT from manual
     assert!(merge_result.merged_config.global_config.mqtt.is_some());
-    let mqtt = merge_result.merged_config.global_config.mqtt.as_ref().unwrap();
+    let mqtt = merge_result
+        .merged_config
+        .global_config
+        .mqtt
+        .as_ref()
+        .unwrap();
     assert_eq!(mqtt.host, "mqtt.local");
 }
 
@@ -286,8 +322,14 @@ detectors:
 "#;
 
     let parser = ConfigParser::new();
-    let ui_config = parser.parse_content(ui_yaml.to_string(), "ui.yaml".to_string()).unwrap().config;
-    let manual_config = parser.parse_content(manual_yaml.to_string(), "manual.yaml".to_string()).unwrap().config;
+    let ui_config = parser
+        .parse_content(ui_yaml.to_string(), "ui.yaml".to_string())
+        .unwrap()
+        .config;
+    let manual_config = parser
+        .parse_content(manual_yaml.to_string(), "manual.yaml".to_string())
+        .unwrap()
+        .config;
 
     let merger = ConfigMerger::new();
     let result = merger.merge_configurations(&ui_config, &manual_config);
@@ -299,11 +341,17 @@ detectors:
     let stats = &merge_result.statistics;
     assert!(stats.total_fields > 0, "Should count total fields");
     assert_eq!(stats.conflicts_count, merge_result.conflicts.len());
-    assert_eq!(stats.preserved_edits_count, merge_result.preserved_edits.len());
+    assert_eq!(
+        stats.preserved_edits_count,
+        merge_result.preserved_edits.len()
+    );
     assert_eq!(stats.warnings_count, merge_result.warnings.len());
 
     // Should have cam3 and coral preserved
-    assert!(stats.preserved_edits_count >= 2, "Should have at least 2 preserved edits");
+    assert!(
+        stats.preserved_edits_count >= 2,
+        "Should have at least 2 preserved edits"
+    );
 }
 
 #[test]
@@ -337,8 +385,14 @@ detectors:
 "#;
 
     let parser = ConfigParser::new();
-    let ui_config = parser.parse_content(ui_yaml.to_string(), "ui.yaml".to_string()).unwrap().config;
-    let manual_config = parser.parse_content(manual_yaml.to_string(), "manual.yaml".to_string()).unwrap().config;
+    let ui_config = parser
+        .parse_content(ui_yaml.to_string(), "ui.yaml".to_string())
+        .unwrap()
+        .config;
+    let manual_config = parser
+        .parse_content(manual_yaml.to_string(), "manual.yaml".to_string())
+        .unwrap()
+        .config;
 
     let merger = ConfigMerger::new();
     let result = merger.merge_configurations(&ui_config, &manual_config);
@@ -348,7 +402,10 @@ detectors:
 
     // Should have UI camera
     assert_eq!(merge_result.merged_config.cameras.len(), 1);
-    assert!(merge_result.merged_config.cameras.contains_key("front_door"));
+    assert!(merge_result
+        .merged_config
+        .cameras
+        .contains_key("front_door"));
 
     // No conflicts expected
     assert_eq!(merge_result.conflicts.len(), 0);
@@ -385,8 +442,14 @@ detectors:
 "#;
 
     let parser = ConfigParser::new();
-    let ui_config = parser.parse_content(ui_yaml.to_string(), "ui.yaml".to_string()).unwrap().config;
-    let manual_config = parser.parse_content(manual_yaml.to_string(), "manual.yaml".to_string()).unwrap().config;
+    let ui_config = parser
+        .parse_content(ui_yaml.to_string(), "ui.yaml".to_string())
+        .unwrap()
+        .config;
+    let manual_config = parser
+        .parse_content(manual_yaml.to_string(), "manual.yaml".to_string())
+        .unwrap()
+        .config;
 
     let merger = ConfigMerger::new();
     let result = merger.merge_configurations(&ui_config, &manual_config);
@@ -396,7 +459,10 @@ detectors:
 
     // Should preserve manual camera
     assert_eq!(merge_result.merged_config.cameras.len(), 1);
-    assert!(merge_result.merged_config.cameras.contains_key("manual_camera"));
+    assert!(merge_result
+        .merged_config
+        .cameras
+        .contains_key("manual_camera"));
 
     // Should have preserved edit
     assert!(merge_result.preserved_edits.len() > 0);
@@ -442,8 +508,14 @@ detectors:
 "#;
 
     let parser = ConfigParser::new();
-    let ui_config = parser.parse_content(ui_yaml.to_string(), "ui.yaml".to_string()).unwrap().config;
-    let manual_config = parser.parse_content(manual_yaml.to_string(), "manual.yaml".to_string()).unwrap().config;
+    let ui_config = parser
+        .parse_content(ui_yaml.to_string(), "ui.yaml".to_string())
+        .unwrap()
+        .config;
+    let manual_config = parser
+        .parse_content(manual_yaml.to_string(), "manual.yaml".to_string())
+        .unwrap()
+        .config;
 
     let merger = ConfigMerger::new();
     let result = merger.merge_configurations(&ui_config, &manual_config);
@@ -457,8 +529,10 @@ detectors:
     let coral = coral.unwrap();
 
     // Should have device and model_path from manual
-    assert!(coral.device.is_some() || merge_result.preserved_edits.len() > 0,
-            "Manual-only fields should be preserved");
+    assert!(
+        coral.device.is_some() || merge_result.preserved_edits.len() > 0,
+        "Manual-only fields should be preserved"
+    );
 }
 
 #[test]
@@ -499,8 +573,14 @@ detectors:
 "#;
 
     let parser = ConfigParser::new();
-    let ui_config = parser.parse_content(ui_yaml.to_string(), "ui.yaml".to_string()).unwrap().config;
-    let manual_config = parser.parse_content(manual_yaml.to_string(), "manual.yaml".to_string()).unwrap().config;
+    let ui_config = parser
+        .parse_content(ui_yaml.to_string(), "ui.yaml".to_string())
+        .unwrap()
+        .config;
+    let manual_config = parser
+        .parse_content(manual_yaml.to_string(), "manual.yaml".to_string())
+        .unwrap()
+        .config;
 
     let merger = ConfigMerger::new();
     let result = merger.merge_configurations(&ui_config, &manual_config);
@@ -514,9 +594,12 @@ detectors:
     // Try to parse it again to verify it's valid
     let reparse_result = parser.parse_content(
         merge_result.merged_config.raw_content.clone(),
-        "merged.yaml".to_string()
+        "merged.yaml".to_string(),
     );
-    assert!(reparse_result.is_ok(), "Merged raw_content should be valid YAML");
+    assert!(
+        reparse_result.is_ok(),
+        "Merged raw_content should be valid YAML"
+    );
 }
 
 #[test]
@@ -567,8 +650,14 @@ detectors:
 "#;
 
     let parser = ConfigParser::new();
-    let ui_config = parser.parse_content(ui_yaml.to_string(), "ui.yaml".to_string()).unwrap().config;
-    let manual_config = parser.parse_content(manual_yaml.to_string(), "manual.yaml".to_string()).unwrap().config;
+    let ui_config = parser
+        .parse_content(ui_yaml.to_string(), "ui.yaml".to_string())
+        .unwrap()
+        .config;
+    let manual_config = parser
+        .parse_content(manual_yaml.to_string(), "manual.yaml".to_string())
+        .unwrap()
+        .config;
 
     let merger = ConfigMerger::new();
     let result = merger.merge_configurations(&ui_config, &manual_config);
@@ -585,7 +674,11 @@ detectors:
 
     // Snapshots should be preserved from manual
     assert!(
-        camera.snapshots.is_some() || merge_result.preserved_edits.iter().any(|e| e.path.contains("snapshots")),
+        camera.snapshots.is_some()
+            || merge_result
+                .preserved_edits
+                .iter()
+                .any(|e| e.path.contains("snapshots")),
         "Snapshots should be preserved from manual"
     );
 }
@@ -628,8 +721,14 @@ detectors:
 "#;
 
     let parser = ConfigParser::new();
-    let ui_config = parser.parse_content(ui_yaml.to_string(), "ui.yaml".to_string()).unwrap().config;
-    let manual_config = parser.parse_content(manual_yaml.to_string(), "manual.yaml".to_string()).unwrap().config;
+    let ui_config = parser
+        .parse_content(ui_yaml.to_string(), "ui.yaml".to_string())
+        .unwrap()
+        .config;
+    let manual_config = parser
+        .parse_content(manual_yaml.to_string(), "manual.yaml".to_string())
+        .unwrap()
+        .config;
 
     let merger = ConfigMerger::new();
     let result = merger.merge_configurations(&ui_config, &manual_config);
@@ -718,8 +817,14 @@ detectors:
 "#;
 
     let parser = ConfigParser::new();
-    let ui_config = parser.parse_content(ui_yaml.to_string(), "ui.yaml".to_string()).unwrap().config;
-    let manual_config = parser.parse_content(manual_yaml.to_string(), "manual.yaml".to_string()).unwrap().config;
+    let ui_config = parser
+        .parse_content(ui_yaml.to_string(), "ui.yaml".to_string())
+        .unwrap()
+        .config;
+    let manual_config = parser
+        .parse_content(manual_yaml.to_string(), "manual.yaml".to_string())
+        .unwrap()
+        .config;
 
     let merger = ConfigMerger::new();
     let result = merger.merge_configurations(&ui_config, &manual_config);
@@ -729,7 +834,10 @@ detectors:
 
     // Should have 3 cameras (2 from UI + 1 manual-only)
     assert_eq!(merge_result.merged_config.cameras.len(), 3);
-    assert!(merge_result.merged_config.cameras.contains_key("front_door"));
+    assert!(merge_result
+        .merged_config
+        .cameras
+        .contains_key("front_door"));
     assert!(merge_result.merged_config.cameras.contains_key("backyard"));
     assert!(merge_result.merged_config.cameras.contains_key("garage"));
 

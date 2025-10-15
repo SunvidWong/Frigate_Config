@@ -15,8 +15,7 @@ fn test_agent_output_schema_structure() {
     let agent_output = run_agent_detect();
 
     // Parse JSON
-    let json: Value = serde_json::from_str(&agent_output)
-        .expect("Agent should produce valid JSON");
+    let json: Value = serde_json::from_str(&agent_output).expect("Agent should produce valid JSON");
 
     // Verify top-level fields exist
     for field in expected_fields {
@@ -28,7 +27,8 @@ fn test_agent_output_schema_structure() {
     }
 
     // Verify platform is a valid string
-    let platform = json["platform"].as_str()
+    let platform = json["platform"]
+        .as_str()
         .expect("platform should be a string");
     assert!(
         ["linux", "windows", "darwin"].contains(&platform),
@@ -36,7 +36,8 @@ fn test_agent_output_schema_structure() {
     );
 
     // Verify architecture is a valid string
-    let arch = json["architecture"].as_str()
+    let arch = json["architecture"]
+        .as_str()
         .expect("architecture should be a string");
     assert!(
         ["x86_64", "arm64", "arm32"].contains(&arch),
@@ -44,16 +45,24 @@ fn test_agent_output_schema_structure() {
     );
 
     // Verify devices is an array
-    let devices = json["devices"].as_array()
+    let devices = json["devices"]
+        .as_array()
         .expect("devices should be an array");
 
     // If devices exist, verify their structure
     if !devices.is_empty() {
         let device = &devices[0];
         let required_device_fields = vec![
-            "id", "type", "name", "device_path", "capabilities",
-            "platform", "architecture", "detection_source",
-            "available", "in_use"
+            "id",
+            "type",
+            "name",
+            "device_path",
+            "capabilities",
+            "platform",
+            "architecture",
+            "detection_source",
+            "available",
+            "in_use",
         ];
 
         for field in required_device_fields {
@@ -65,7 +74,8 @@ fn test_agent_output_schema_structure() {
         }
 
         // Verify device type is valid
-        let device_type = device["type"].as_str()
+        let device_type = device["type"]
+            .as_str()
             .expect("device type should be a string");
         assert!(
             ["gpu", "tpu", "camera", "capture_card"].contains(&device_type),
@@ -74,7 +84,8 @@ fn test_agent_output_schema_structure() {
     }
 
     // Verify detected_at is ISO 8601 timestamp
-    let detected_at = json["detected_at"].as_str()
+    let detected_at = json["detected_at"]
+        .as_str()
         .expect("detected_at should be a string");
     assert!(
         detected_at.contains('T') && detected_at.contains('Z'),
@@ -86,16 +97,17 @@ fn test_agent_output_schema_structure() {
 fn test_agent_device_types() {
     // Test that agent can detect different device types
     let agent_output = run_agent_detect();
-    let json: Value = serde_json::from_str(&agent_output)
-        .expect("Agent should produce valid JSON");
+    let json: Value = serde_json::from_str(&agent_output).expect("Agent should produce valid JSON");
 
-    let devices = json["devices"].as_array()
+    let devices = json["devices"]
+        .as_array()
         .expect("devices should be an array");
 
     // At minimum, we expect the test to run without panicking
     // Actual device detection depends on the test environment
     for device in devices {
-        let device_type = device["type"].as_str()
+        let device_type = device["type"]
+            .as_str()
             .expect("Each device should have a type");
 
         // Verify type is one of the allowed values
@@ -108,10 +120,22 @@ fn test_agent_device_types() {
         // Verify device has required fields
         assert!(device["id"].is_string(), "Device must have string id");
         assert!(device["name"].is_string(), "Device must have string name");
-        assert!(device["device_path"].is_string(), "Device must have string device_path");
-        assert!(device["capabilities"].is_array(), "Device must have array capabilities");
-        assert!(device["available"].is_boolean(), "Device must have boolean available");
-        assert!(device["in_use"].is_boolean(), "Device must have boolean in_use");
+        assert!(
+            device["device_path"].is_string(),
+            "Device must have string device_path"
+        );
+        assert!(
+            device["capabilities"].is_array(),
+            "Device must have array capabilities"
+        );
+        assert!(
+            device["available"].is_boolean(),
+            "Device must have boolean available"
+        );
+        assert!(
+            device["in_use"].is_boolean(),
+            "Device must have boolean in_use"
+        );
     }
 }
 
@@ -137,19 +161,18 @@ fn run_agent_detect() -> String {
     );
 
     // Return stdout as string
-    String::from_utf8(output.stdout)
-        .expect("Agent output should be valid UTF-8")
+    String::from_utf8(output.stdout).expect("Agent output should be valid UTF-8")
 }
 
 // Helper to find agent binary
 fn find_agent_binary() -> String {
     // Try different possible locations
     let possible_paths = vec![
-        "../agent/agent",  // From src-tauri during tests
-        "../../agent/agent",  // From target/debug/deps
+        "../agent/agent",    // From src-tauri during tests
+        "../../agent/agent", // From target/debug/deps
         "agent/agent",
         "./agent",
-        "../src-tauri/bin/agent",  // After build
+        "../src-tauri/bin/agent", // After build
     ];
 
     for path in possible_paths {
@@ -169,6 +192,10 @@ mod schema_validation_tests {
     fn test_agent_binary_exists() {
         // Verify that we can find the agent binary
         let path = find_agent_binary();
-        assert!(std::path::Path::new(&path).exists(), "Agent binary should exist at: {}", path);
+        assert!(
+            std::path::Path::new(&path).exists(),
+            "Agent binary should exist at: {}",
+            path
+        );
     }
 }

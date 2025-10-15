@@ -89,7 +89,10 @@ pub async fn detect_hardware(
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
         error!("Agent command failed: {}", stderr);
-        return Err(AppError::Agent(format!("Agent execution failed: {}", stderr)));
+        return Err(AppError::Agent(format!(
+            "Agent execution failed: {}",
+            stderr
+        )));
     }
 
     // Parse JSON output
@@ -144,7 +147,10 @@ pub async fn get_device_capabilities(
     device_id: String,
     capability_type: String,
 ) -> Result<serde_json::Value, AppError> {
-    info!("Getting capabilities for device {}: {}", device_id, capability_type);
+    info!(
+        "Getting capabilities for device {}: {}",
+        device_id, capability_type
+    );
 
     let agent_path = find_agent_binary()?;
 
@@ -154,7 +160,12 @@ pub async fn get_device_capabilities(
         "tpu" => "detect-tpu-capabilities",
         "capture_card" => "detect-capture-card-capabilities",
         "availability" => "detect-availability",
-        _ => return Err(AppError::Agent(format!("Unknown capability type: {}", capability_type))),
+        _ => {
+            return Err(AppError::Agent(format!(
+                "Unknown capability type: {}",
+                capability_type
+            )))
+        }
     };
 
     let output = Command::new(&agent_path)
@@ -165,7 +176,10 @@ pub async fn get_device_capabilities(
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
         error!("Agent command failed: {}", stderr);
-        return Err(AppError::Agent(format!("Agent execution failed: {}", stderr)));
+        return Err(AppError::Agent(format!(
+            "Agent execution failed: {}",
+            stderr
+        )));
     }
 
     let stdout = String::from_utf8(output.stdout)
@@ -192,7 +206,10 @@ pub async fn get_hardware_availability() -> Result<serde_json::Value, AppError> 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
         error!("Agent command failed: {}", stderr);
-        return Err(AppError::Agent(format!("Agent execution failed: {}", stderr)));
+        return Err(AppError::Agent(format!(
+            "Agent execution failed: {}",
+            stderr
+        )));
     }
 
     let stdout = String::from_utf8(output.stdout)
@@ -227,7 +244,10 @@ pub async fn get_agent_version() -> Result<String, AppError> {
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
         error!("Agent command failed: {}", stderr);
-        return Err(AppError::Agent(format!("Agent execution failed: {}", stderr)));
+        return Err(AppError::Agent(format!(
+            "Agent execution failed: {}",
+            stderr
+        )));
     }
 
     let stdout = String::from_utf8(output.stdout)
@@ -240,11 +260,11 @@ pub async fn get_agent_version() -> Result<String, AppError> {
 fn find_agent_binary() -> Result<String, AppError> {
     // Try different possible locations
     let possible_paths = vec![
-        "../agent/agent",              // Development (from src-tauri)
-        "../../agent/agent",           // From target directory
-        "./agent/agent",               // Current directory
-        "../src-tauri/bin/agent",      // After build/install
-        "agent",                       // In PATH
+        "../agent/agent",         // Development (from src-tauri)
+        "../../agent/agent",      // From target directory
+        "./agent/agent",          // Current directory
+        "../src-tauri/bin/agent", // After build/install
+        "agent",                  // In PATH
     ];
 
     for path in possible_paths {

@@ -130,8 +130,7 @@ async fn get_hardware_devices(
 }
 
 /// Scan PCI devices
-async fn scan_pci_devices(
-) -> Result<Json<ApiResponse<deploy::PciDeviceList>>, AppError> {
+async fn scan_pci_devices() -> Result<Json<ApiResponse<deploy::PciDeviceList>>, AppError> {
     info!("HTTP API: Scan PCI devices");
     // Call the internal scan function directly instead of going through Tauri command
     let pci_devices = deploy::scan_host_pci_devices().await?;
