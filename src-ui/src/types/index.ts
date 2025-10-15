@@ -30,7 +30,7 @@ export interface DetectionResult {
 }
 
 export type HwAccelType = 'none' | 'vaapi' | 'cuda' | 'qsv' | 'videotoolbox' | 'rkmpp' | 'jetson'
-export type DetectorType = 'cpu' | 'tensorrt' | 'edgetpu' | 'openvino' | 'rknn' | 'hailo8'
+export type DetectorType = 'cpu' | 'onnx' | 'edgetpu' | 'openvino' | 'rknn' | 'hailo8l'
 
 export interface CameraConfiguration {
   id: string

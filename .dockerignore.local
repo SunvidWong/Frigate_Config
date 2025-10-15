@@ -1,0 +1,36 @@
+# Git
+.git
+.gitignore
+
+# Source code (we only need binaries)
+src-tauri/src/
+src-ui/src/
+
+# Documentation
+*.md
+docs/
+PHASE_8_*.md
+specs/
+
+# Tests
+tests/
+
+# Development files
+.vscode/
+.idea/
+*.log
+.DS_Store
+.env.local
+.env.*.local
+
+# CI/CD
+.github/
+
+# Release packages
+*.tar.gz
+*.zip
+phase8-release-macos/
+
+# Keep these for the build:
+# target/release/frigate-config-tool
+# src-ui/dist/

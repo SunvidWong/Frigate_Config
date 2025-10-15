@@ -1,0 +1,31 @@
+# Use cached nginx:alpine as base
+FROM nginx:alpine
+
+WORKDIR /app
+
+# Copy pre-built binary
+COPY target/release/frigate-config-tool /app/frigate-config-tool
+
+# Copy frontend dist
+COPY src-ui/dist /app/web
+
+# Create data directory
+RUN mkdir -p /app/data && \
+    chmod +x /app/frigate-config-tool && \
+    apk add --no-cache curl
+
+# Set environment variables
+ENV RUST_LOG=info
+ENV FRIGATE_CONFIG_DATA_DIR=/app/data
+ENV FRIGATE_HTTP_MODE=true
+ENV PORT=1420
+
+# Expose port for HTTP server
+EXPOSE 1420
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:1420/api/health || exit 1
+
+# Run the application (not nginx)
+CMD ["/app/frigate-config-tool"]

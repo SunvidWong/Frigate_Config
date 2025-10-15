@@ -182,21 +182,27 @@ services:
 
   /**
    * Get recommended devices based on hardware
+   * Updated for Frigate 2025: NVIDIA uses runtime, Hailo needs device mapping
    */
   static getRecommendedDevices(hardwareType: string): string[] {
     switch (hardwareType) {
       case 'coral':
       case 'edgetpu':
-        return ['/dev/bus/usb:/dev/bus/usb'];
+        return ['/dev/bus/usb:/dev/bus/usb', '/dev/apex_0:/dev/apex_0'];
       case 'intel':
       case 'qsv':
       case 'vaapi':
         return ['/dev/dri/renderD128:/dev/dri/renderD128'];
       case 'nvidia':
       case 'cuda':
-      case 'tensorrt':
-        // NVIDIA doesn't use device mapping, uses nvidia-docker runtime
+      case 'onnx':  // ONNX detector for NVIDIA
+        // NVIDIA doesn't use --device mapping, uses nvidia runtime or deploy.resources
         return [];
+      case 'hailo':
+      case 'hailo8':
+      case 'hailo8l':
+        // Hailo needs device mapping
+        return ['/dev/hailo0:/dev/hailo0'];
       default:
         return [];
     }

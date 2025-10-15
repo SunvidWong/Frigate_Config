@@ -52,14 +52,14 @@ const HWACCEL_OPTIONS = [
   { value: 'jetson', label: 'NVIDIA Jetson', description: 'Jetson平台硬件解码' },
 ]
 
-// AI Detector options
+// AI Detector options (Updated for Frigate 2025)
 const DETECTOR_OPTIONS = [
-  { value: 'cpu', label: 'CPU', description: '使用CPU进行AI检测' },
-  { value: 'tensorrt', label: 'TensorRT (NVIDIA)', description: 'NVIDIA GPU加速' },
+  { value: 'cpu', label: 'CPU', description: '使用CPU进行AI检测(不推荐)' },
+  { value: 'onnx', label: 'ONNX (NVIDIA推荐)', description: 'NVIDIA GPU加速(自动检测,2025官方推荐)' },
   { value: 'edgetpu', label: 'Coral EdgeTPU', description: 'Google Coral TPU' },
   { value: 'openvino', label: 'OpenVINO (Intel)', description: 'Intel神经计算棒/集显' },
   { value: 'rknn', label: 'RKNN (Rockchip)', description: 'Rockchip NPU' },
-  { value: 'hailo8', label: 'Hailo-8', description: 'Hailo-8 AI加速器' },
+  { value: 'hailo8l', label: 'Hailo-8L', description: 'Hailo-8L AI加速器' },
 ]
 
 const CamerasPage: React.FC = () => {

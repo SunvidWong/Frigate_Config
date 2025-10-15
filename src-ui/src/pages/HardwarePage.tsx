@@ -35,10 +35,8 @@ interface PresetHardware {
 }
 
 const PRESET_HARDWARE: PresetHardware[] = [
-  // NVIDIA GPUs - Following Frigate official documentation
-  { id: 'nvidia-gpu-0', name: 'NVIDIA GPU (主设备)', devicePath: '/dev/nvidia0', type: 'gpu', description: 'NVIDIA 显卡主设备' },
-  { id: 'nvidia-ctl', name: 'NVIDIA 控制设备', devicePath: '/dev/nvidiactl', type: 'gpu', description: 'NVIDIA 控制设备文件' },
-  { id: 'nvidia-uvm', name: 'NVIDIA UVM', devicePath: '/dev/nvidia-uvm', type: 'gpu', description: 'NVIDIA 统一虚拟内存' },
+  // NVIDIA GPUs - NOTE: NVIDIA uses runtime, not device mapping (for reference only)
+  // { id: 'nvidia-gpu', name: 'NVIDIA GPU', devicePath: 'runtime:nvidia', type: 'gpu', description: 'NVIDIA GPU 使用 runtime 配置,无需设备映射' },
 
   // Intel GPUs
   { id: 'intel-qsv', name: 'Intel Quick Sync Video', devicePath: '/dev/dri/renderD128', type: 'gpu', description: 'Intel 核显硬件加速' },
@@ -52,9 +50,8 @@ const PRESET_HARDWARE: PresetHardware[] = [
   { id: 'coral-pci', name: 'Google Coral PCIe/M.2', devicePath: '/dev/apex_0', type: 'tpu', description: 'Google Coral PCIe/M.2 加速器' },
   { id: 'coral-usb', name: 'Google Coral USB', devicePath: '/dev/bus/usb', type: 'tpu', description: 'Google Coral USB 加速器' },
 
-  // Hailo AI Accelerators
-  { id: 'hailo8', name: 'Hailo-8 AI Accelerator', devicePath: '/dev/hailo0', type: 'tpu', description: 'Hailo-8 AI 加速器' },
-  { id: 'hailo8l', name: 'Hailo-8L AI Accelerator', devicePath: '/dev/hailo0', type: 'tpu', description: 'Hailo-8L AI 加速器' },
+  // Hailo AI Accelerators (Updated 2025)
+  { id: 'hailo8l', name: 'Hailo-8L AI Accelerator', devicePath: '/dev/hailo0', type: 'tpu', description: 'Hailo-8L AI 加速器(官方推荐型号)' },
 
   // Rockchip NPUs
   { id: 'rockchip-npu', name: 'Rockchip NPU', devicePath: '/dev/rknpu', type: 'tpu', description: 'Rockchip NPU (RK3588/RK3576)' },
@@ -260,17 +257,27 @@ const HardwarePage: React.FC = () => {
       return
     }
 
-    const devicePaths = pciDevice.recommended_device_path.split(', ')
-    const devicePath = devicePaths[0] // Use first recommended path
-
     setAddingDevice(pciDevice.slot)
     setAddSuccess(null)
 
     try {
       let deviceName = pciDevice.vendor
-      if (pciDevice.is_nvidia) deviceName = 'NVIDIA GPU'
-      else if (pciDevice.is_amd) deviceName = 'AMD GPU'
-      else if (pciDevice.is_intel) deviceName = 'Intel GPU'
+      let devicePath = pciDevice.recommended_device_path
+
+      if (pciDevice.is_nvidia) {
+        deviceName = 'NVIDIA GPU'
+        // For NVIDIA, use a special marker that backend will recognize
+        // Backend will add deploy.resources.reservations instead of device mapping
+        devicePath = 'nvidia-gpu-runtime'
+      } else if (pciDevice.is_amd) {
+        deviceName = 'AMD GPU'
+        devicePath = pciDevice.recommended_device_path.split(', ')[0]
+      } else if (pciDevice.is_intel) {
+        deviceName = 'Intel GPU'
+        devicePath = pciDevice.recommended_device_path.split(', ')[0]
+      } else {
+        devicePath = pciDevice.recommended_device_path.split(', ')[0]
+      }
 
       await safeInvoke('add_hardware_device_to_config', {
         devicePath,
@@ -278,7 +285,11 @@ const HardwarePage: React.FC = () => {
         deviceName
       })
 
-      setAddSuccess(`已添加 ${deviceName} 到配置`)
+      if (pciDevice.is_nvidia) {
+        setAddSuccess(`已添加 ${deviceName} 到配置 (使用 deploy.resources.reservations)`)
+      } else {
+        setAddSuccess(`已添加 ${deviceName} 到配置`)
+      }
       setTimeout(() => setAddSuccess(null), 3000)
     } catch (err) {
       alert(`添加失败: ${err}`)

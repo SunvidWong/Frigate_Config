@@ -535,59 +535,61 @@ async fn update_docker_compose_devices() -> Result<(), AppError> {
                 .ok_or_else(|| AppError::Deployment("Invalid service structure".to_string()))?;
 
             // Categorize devices by type
+            // IMPORTANT: NVIDIA GPUs should NOT use device mapping, only deploy.resources
+            // Following Frigate 2025 official documentation
             let mut standard_device_mappings = Vec::new();
             let mut has_nvidia_gpu = false;
+            let mut requires_privileged = false;
 
             for device in &devices {
+                // Check for NVIDIA GPU by device_name OR special device_path marker
+                let is_nvidia = device.device_name.contains("NVIDIA") ||
+                               device.device_path == "nvidia-gpu-runtime" ||
+                               device.device_path.starts_with("nvidia-");
+
+                let is_hailo = device.device_name.contains("Hailo") ||
+                              device.device_path.contains("hailo");
+
                 match device.device_type.as_str() {
-                    "gpu" if device.device_name.contains("NVIDIA") => {
+                    "gpu" if is_nvidia => {
+                        // NVIDIA GPUs - DO NOT add to devices mapping
+                        // NVIDIA uses deploy.resources.reservations only
                         has_nvidia_gpu = true;
-                        // For NVIDIA GPUs, use the official Frigate recommended format
-                        // Add device paths like /dev/nvidia0:/dev/nvidia0
-                        if device.device_path.starts_with("/dev/nvidia") {
+                        info!("Detected NVIDIA GPU ({}), will use deploy.resources.reservations (no device mapping)", device.device_name);
+                    },
+                    "tpu" if is_hailo => {
+                        // Hailo devices need device mapping AND privileged mode
+                        standard_device_mappings.push(serde_yaml::Value::String(
+                            format!("{}:{}", device.device_path, device.device_path)
+                        ));
+                        requires_privileged = true;
+                        info!("Detected Hailo TPU ({}), added device mapping and will enable privileged mode", device.device_name);
+                    },
+                    _ => {
+                        // Other devices use standard device mapping
+                        // Skip special marker paths
+                        if !device.device_path.starts_with("nvidia-") &&
+                           !device.device_path.contains("runtime") {
                             standard_device_mappings.push(serde_yaml::Value::String(
                                 format!("{}:{}", device.device_path, device.device_path)
                             ));
                         }
-                        // Also add common NVIDIA device files
-                        for nvidia_device in &[
-                            "/dev/nvidia0",
-                            "/dev/nvidiactl",
-                            "/dev/nvidia-modeset",
-                            "/dev/nvidia-uvm",
-                            "/dev/nvidia-uvm-tools",
-                        ] {
-                            let device_str = format!("{}:{}", nvidia_device, nvidia_device);
-                            if !standard_device_mappings.iter().any(|v| {
-                                if let serde_yaml::Value::String(s) = v {
-                                    s == &device_str
-                                } else {
-                                    false
-                                }
-                            }) {
-                                standard_device_mappings.push(serde_yaml::Value::String(device_str));
-                            }
-                        }
-                    },
-                    _ => {
-                        // Other devices use standard device mapping
-                        standard_device_mappings.push(serde_yaml::Value::String(
-                            format!("{}:{}", device.device_path, device.device_path)
-                        ));
                     }
                 }
             }
 
-            // Add standard devices mapping (Frigate official format)
+            // Add standard devices mapping for non-NVIDIA devices
             if !standard_device_mappings.is_empty() {
+                let device_count = standard_device_mappings.len();
                 service_map.insert(
                     serde_yaml::Value::String("devices".to_string()),
                     serde_yaml::Value::Sequence(standard_device_mappings),
                 );
+                info!("Added {} device mappings to docker-compose.yml", device_count);
             }
 
-            // For NVIDIA, also consider adding deploy.resources.reservations format
-            // This is the Docker Compose v2.3+ format recommended by Frigate
+            // For NVIDIA, add deploy.resources.reservations (Frigate 2025 official format)
+            // This is the ONLY way to use NVIDIA GPUs with Frigate
             if has_nvidia_gpu {
                 // Create deploy.resources.reservations structure
                 let mut deploy_map = serde_yaml::Mapping::new();
@@ -629,7 +631,16 @@ async fn update_docker_compose_devices() -> Result<(), AppError> {
                     serde_yaml::Value::Mapping(deploy_map),
                 );
 
-                info!("Added NVIDIA GPU configuration with both devices mapping and deploy.resources.reservations");
+                info!("Added NVIDIA GPU configuration with deploy.resources.reservations (official Frigate 2025 format)");
+            }
+
+            // Set privileged mode for Hailo and other devices that need it
+            if requires_privileged {
+                service_map.insert(
+                    serde_yaml::Value::String("privileged".to_string()),
+                    serde_yaml::Value::Bool(true),
+                );
+                info!("Enabled privileged mode for hardware requiring it");
             }
 
             // Write back to file
@@ -945,39 +956,12 @@ fn parse_lspci_output(output: &str) -> Result<Vec<PciDeviceInfo>, AppError> {
 }
 
 /// Determine the recommended device path based on vendor
+/// IMPORTANT: NVIDIA GPUs should NOT use device mapping in Frigate 2025
 fn determine_recommended_device_path(device: &PciDeviceInfo) -> Option<String> {
     if device.is_nvidia {
-        // NVIDIA devices - Frigate official format
-        // Check which NVIDIA device files exist
-        let mut nvidia_devices = Vec::new();
-
-        // Primary NVIDIA devices (following Frigate documentation)
-        for nvidia_dev in &[
-            "/dev/nvidia0",
-            "/dev/nvidiactl",
-            "/dev/nvidia-modeset",
-            "/dev/nvidia-uvm",
-            "/dev/nvidia-uvm-tools",
-        ] {
-            if std::path::Path::new(nvidia_dev).exists() {
-                nvidia_devices.push(nvidia_dev.to_string());
-            }
-        }
-
-        // Check for additional nvidia device numbers
-        for i in 0..8 {
-            let dev = format!("/dev/nvidia{}", i);
-            if std::path::Path::new(&dev).exists() && !nvidia_devices.contains(&dev) {
-                nvidia_devices.push(dev);
-            }
-        }
-
-        if !nvidia_devices.is_empty() {
-            Some(nvidia_devices.join(", "))
-        } else {
-            // Fallback recommendation based on Frigate docs
-            Some("/dev/nvidia0, /dev/nvidiactl, /dev/nvidia-modeset, /dev/nvidia-uvm, /dev/nvidia-uvm-tools".to_string())
-        }
+        // NVIDIA GPUs - Frigate 2025 uses deploy.resources, NOT device mapping
+        // Return a special marker to indicate this is NVIDIA
+        Some("🔧 NVIDIA GPU 使用 deploy.resources.reservations,无需设备映射".to_string())
     } else if device.is_amd || device.is_intel {
         // AMD and Intel use DRI render nodes
         let mut dri_devices = Vec::new();

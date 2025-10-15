@@ -83,12 +83,14 @@ export class FrigateConfigGenerator {
 
     // Generate detector configs based on type
     // Following official Frigate documentation: https://docs.frigate.video/configuration/object_detectors
+    // UPDATED 2025: TensorRT deprecated, use ONNX for NVIDIA GPUs
     usedDetectors.forEach((detectorType) => {
       switch (detectorType) {
-        case 'tensorrt':
-          detectors['tensorrt'] = {
-            type: 'tensorrt',
-            device: 0, // GPU index (0 = first GPU)
+        case 'onnx':
+          // ONNX detector (recommended for NVIDIA GPUs in 2025)
+          detectors['onnx'] = {
+            type: 'onnx',
+            device: 'AUTO', // AUTO will automatically use NVIDIA GPU if available
           };
           break;
         case 'edgetpu':
@@ -109,10 +111,18 @@ export class FrigateConfigGenerator {
             num_cores: 0, // 0 = automatically choose
           };
           break;
-        case 'hailo8':
-          detectors['hailo8'] = {
-            type: 'hailo8',
-            device: 'PCIe', // PCIe is the correct value for Hailo-8
+        case 'hailo8l':
+          // Hailo-8L detector (official name)
+          detectors['hailo8l'] = {
+            type: 'hailo8l',
+            device: 'PCIe',
+            model: {
+              width: 320,
+              height: 320,
+              input_tensor: 'nhwc',
+              input_pixel_format: 'bgr',
+              model_type: 'yolov6',
+            },
           };
           break;
         case 'cpu':
