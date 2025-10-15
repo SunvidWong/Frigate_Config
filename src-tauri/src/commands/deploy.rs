@@ -439,13 +439,25 @@ pub async fn add_device_internal(
 
         info!("Saved hardware device to config: {}", config_path.display());
 
-        // Update docker-compose.yml if it exists
-        if let Err(e) = update_docker_compose_devices().await {
-            warn!("Failed to update docker-compose.yml: {}", e);
-            // Don't fail the entire operation if docker-compose update fails
-        }
+        // Update docker-compose.yml - CRITICAL: Return error to user if this fails
+        info!("Attempting to update docker-compose.yml...");
+        update_docker_compose_devices().await.map_err(|e| {
+            let err_msg = format!("设备已保存到配置文件,但无法更新 docker-compose.yml: {}。请检查日志获取详细信息。", e);
+            warn!("{}", err_msg);
+            // Return error so user sees it
+            AppError::Deployment(err_msg)
+        })?;
+
+        info!("✓ Device added and docker-compose.yml updated successfully");
     } else {
         info!("Device already exists in config: {}", device_path);
+        // Still try to update docker-compose.yml in case it was not updated before
+        info!("Attempting to update docker-compose.yml for existing device...");
+        update_docker_compose_devices().await.map_err(|e| {
+            let err_msg = format!("设备已在配置中,但无法更新 docker-compose.yml: {}。请检查日志获取详细信息。", e);
+            warn!("{}", err_msg);
+            AppError::Deployment(err_msg)
+        })?;
     }
 
     Ok(())
@@ -474,35 +486,54 @@ pub async fn add_hardware_device_to_config(
 async fn update_docker_compose_devices() -> Result<(), AppError> {
     use std::path::Path;
 
+    info!("=== Starting docker-compose.yml update ===");
+
     // Find or create Frigate deployment docker-compose.yml
     let config_dir = dirs::config_dir()
         .ok_or_else(|| AppError::Deployment("Failed to get config directory".to_string()))?
         .join("frigate-config-tool");
+
+    info!("Config directory: {:?}", config_dir);
 
     // Ensure config directory exists
     tokio::fs::create_dir_all(&config_dir).await
         .map_err(|e| AppError::Deployment(format!("Failed to create config directory: {}", e)))?;
 
     let default_compose_path = config_dir.join("frigate-docker-compose.yml");
+    info!("Default compose path: {:?}", default_compose_path);
 
     // Look for existing docker-compose.yml in common locations
     let possible_paths = vec![
+        // Project root (most common for development)
+        "./docker-compose.yml".to_string(),
+        "./docker-compose.yaml".to_string(),
+        // User config directory
         default_compose_path.to_string_lossy().to_string(),
+        // User HOME frigate folder
         format!("{}/frigate/docker-compose.yml", std::env::var("HOME").unwrap_or_default()),
+        // System standard locations
         "/opt/frigate/docker-compose.yml".to_string(),
         "docker-compose.frigate.yml".to_string(),
     ];
+
+    info!("Searching for docker-compose.yml in {} possible locations", possible_paths.len());
+    for (idx, path) in possible_paths.iter().enumerate() {
+        let exists = Path::new(path).exists();
+        info!("  [{}] {} - exists: {}", idx + 1, path, exists);
+    }
 
     let compose_path = possible_paths.iter()
         .find(|p| Path::new(p).exists())
         .map(|s| s.to_string())
         .unwrap_or_else(|| {
             // If no existing file found, use default path
-            info!("No existing docker-compose.yml found, will create at: {}", default_compose_path.display());
+            warn!("No existing docker-compose.yml found in any location!");
+            info!("Will create new file at: {}", default_compose_path.display());
             default_compose_path.to_string_lossy().to_string()
         });
 
-    info!("Using Frigate docker-compose.yml at: {}", compose_path);
+    info!("✓ Selected docker-compose.yml path: {}", compose_path);
+    info!("✓ File exists: {}", Path::new(&compose_path).exists());
 
     // If file doesn't exist, create from template
     if !Path::new(&compose_path).exists() {
@@ -515,22 +546,61 @@ async fn update_docker_compose_devices() -> Result<(), AppError> {
     // Load hardware devices
     let devices = load_hardware_devices().await?;
 
+    info!("Loaded {} hardware devices from config", devices.len());
+    for (idx, device) in devices.iter().enumerate() {
+        info!("  [{}] {} ({}) - path: {}, enabled: {}",
+            idx + 1,
+            device.device_name,
+            device.device_type,
+            device.device_path,
+            device.enabled
+        );
+    }
+
     if devices.is_empty() {
-        info!("No devices to add to docker-compose.yml");
+        warn!("No devices to add to docker-compose.yml - returning early");
         return Ok(());
     }
 
     // Read docker-compose.yml
+    info!("Reading docker-compose.yml from: {}", compose_path);
     let content = tokio::fs::read_to_string(&compose_path).await
-        .map_err(|e| AppError::Deployment(format!("Failed to read docker-compose.yml: {}", e)))?;
+        .map_err(|e| {
+            let err_msg = format!("Failed to read docker-compose.yml from '{}': {}", compose_path, e);
+            warn!("{}", err_msg);
+            AppError::Deployment(err_msg)
+        })?;
+
+    info!("✓ Successfully read {} bytes from docker-compose.yml", content.len());
+    info!("First 200 chars: {}", &content[..content.len().min(200)].replace('\n', "\\n"));
 
     // Parse YAML
+    info!("Parsing YAML content...");
     let mut yaml: serde_yaml::Value = serde_yaml::from_str(&content)
-        .map_err(|e| AppError::Deployment(format!("Failed to parse docker-compose.yml: {}", e)))?;
+        .map_err(|e| {
+            let err_msg = format!("Failed to parse docker-compose.yml: {}. Content preview: {}", e, &content[..content.len().min(500)]);
+            warn!("{}", err_msg);
+            AppError::Deployment(err_msg)
+        })?;
+
+    info!("✓ YAML parsed successfully");
+
+    // Log YAML structure
+    if let Some(services) = yaml.get("services").and_then(|s| s.as_mapping()) {
+        info!("Found {} services in docker-compose.yml:", services.len());
+        for (key, _) in services {
+            info!("  - Service: {:?}", key.as_str().unwrap_or("<unknown>"));
+        }
+    } else {
+        warn!("No 'services' key found in docker-compose.yml!");
+        return Err(AppError::Deployment("docker-compose.yml does not contain 'services' key".to_string()));
+    }
 
     // Navigate to services.frigate (not frigate-config-tool!)
+    info!("Looking for 'frigate' service...");
     if let Some(services) = yaml.get_mut("services") {
         if let Some(service) = services.get_mut("frigate") {
+            info!("✓ Found 'frigate' service");
             let service_map = service.as_mapping_mut()
                 .ok_or_else(|| AppError::Deployment("Invalid service structure".to_string()))?;
 
@@ -644,16 +714,37 @@ async fn update_docker_compose_devices() -> Result<(), AppError> {
             }
 
             // Write back to file
+            info!("Serializing updated YAML...");
             let updated_content = serde_yaml::to_string(&yaml)
-                .map_err(|e| AppError::Deployment(format!("Failed to serialize YAML: {}", e)))?;
+                .map_err(|e| {
+                    let err_msg = format!("Failed to serialize YAML: {}", e);
+                    warn!("{}", err_msg);
+                    AppError::Deployment(err_msg)
+                })?;
 
-            tokio::fs::write(&compose_path, updated_content).await
-                .map_err(|e| AppError::Deployment(format!("Failed to write docker-compose.yml: {}", e)))?;
+            info!("✓ Generated {} bytes of YAML content", updated_content.len());
+            info!("Preview (first 500 chars): {}", &updated_content[..updated_content.len().min(500)].replace('\n', "\\n"));
 
-            info!("Updated Frigate docker-compose.yml with {} devices", devices.len());
+            info!("Writing updated content to: {}", compose_path);
+            tokio::fs::write(&compose_path, &updated_content).await
+                .map_err(|e| {
+                    let err_msg = format!("Failed to write docker-compose.yml to '{}': {}", compose_path, e);
+                    warn!("{}", err_msg);
+                    AppError::Deployment(err_msg)
+                })?;
+
+            info!("✓ Successfully wrote docker-compose.yml");
+            info!("✓ Updated Frigate docker-compose.yml with {} devices", devices.len());
+            info!("=== docker-compose.yml update completed successfully ===");
         } else {
-            return Err(AppError::Deployment("No 'frigate' service found in docker-compose.yml".to_string()));
+            let err_msg = "No 'frigate' service found in docker-compose.yml. Available services were logged above.".to_string();
+            warn!("{}", err_msg);
+            return Err(AppError::Deployment(err_msg));
         }
+    } else {
+        let err_msg = "docker-compose.yml does not contain 'services' key at root level".to_string();
+        warn!("{}", err_msg);
+        return Err(AppError::Deployment(err_msg));
     }
 
     Ok(())
