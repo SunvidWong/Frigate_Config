@@ -159,28 +159,6 @@ const DeployPage: React.FC = () => {
   useEffect(() => {
     loadHistory()
     loadSavedDevices() // Phase 3 - 加载已保存的硬件设备
-
-    // Generate docker-compose.yml preview
-    const compose = DockerComposeGenerator.generateCompose({
-      volumes: {
-        config_path: './config',
-        storage_path: './storage',
-        cache_size: 1000000000
-      },
-      ports: {
-        web_port: 8971,
-        rtsp_port: 8554,
-        webrtc_tcp_port: 8555,
-        webrtc_udp_port: 8555
-      },
-      devices: [],
-      environment: {
-        FRIGATE_RTSP_PASSWORD: 'password'
-      },
-      shm_size: '256mb',
-      privileged: true
-    })
-    setComposeYaml(compose)
   }, [])
 
   useEffect(() => {
@@ -249,6 +227,33 @@ const DeployPage: React.FC = () => {
     }
   }, [logsData])
 
+  // 根据已保存的设备生成 docker-compose 预览
+  useEffect(() => {
+    if (savedDevices !== undefined) {
+      // 检测硬件类型
+      let hardwareType: string | undefined;
+      const hasCuda = savedDevices?.some(d => d.includes('nvidia') || d.includes('cuda'));
+      const hasHailo = savedDevices?.some(d => d.includes('hailo'));
+      const hasIntel = savedDevices?.some(d => d.includes('dri'));
+      const hasCoral = savedDevices?.some(d => d.includes('apex') || d.includes('usb'));
+
+      if (hasCuda) hardwareType = 'nvidia';
+      else if (hasHailo) hardwareType = 'hailo';
+      else if (hasIntel) hardwareType = 'intel';
+      else if (hasCoral) hardwareType = 'coral';
+
+      // 使用增强的配置生成器
+      const fullConfig = DockerComposeGenerator.generateFullConfig(
+        savedDevices || [],
+        { config: './config', storage: './storage' },
+        hardwareType
+      );
+
+      const compose = DockerComposeGenerator.generateCompose(fullConfig);
+      setComposeYaml(compose);
+    }
+  }, [savedDevices])
+
   // Phase 3 - 清理轮询定时器
   useEffect(() => {
     return () => {
@@ -280,6 +285,21 @@ const DeployPage: React.FC = () => {
     // Phase 3 - 使用已保存的硬件设备列表
     const deviceList = savedDevices || []
 
+    // 检测硬件类型以添加对应的环境变量
+    let hardwareType: string | undefined;
+    const hasCuda = deviceList.some(d => d.includes('nvidia') || d.includes('cuda'));
+    const hasHailo = deviceList.some(d => d.includes('hailo'));
+    const hasIntel = deviceList.some(d => d.includes('dri'));
+    const hasCoral = deviceList.some(d => d.includes('apex') || d.includes('usb'));
+
+    if (hasCuda) hardwareType = 'nvidia';
+    else if (hasHailo) hardwareType = 'hailo';
+    else if (hasIntel) hardwareType = 'intel';
+    else if (hasCoral) hardwareType = 'coral';
+
+    // 获取推荐的环境变量
+    const recommendedEnv = DockerComposeGenerator.getRecommendedEnvironment(hardwareType);
+
     const config: DeploymentConfig = {
       config_path: configPath,
       method: deploymentMethod,
@@ -289,12 +309,13 @@ const DeployPage: React.FC = () => {
         { host_path: '/media/frigate', container_path: '/media/frigate' },
       ],
       ports: [
-        { host_port: 5000, container_port: 5000 },
+        { host_port: 8971, container_port: 8971 },  // 修正为 Frigate 默认端口
         { host_port: 8554, container_port: 8554 },
         { host_port: 8555, container_port: 8555 },
       ],
       environment: {
         TZ: 'UTC',
+        ...recommendedEnv, // 添加所有推荐的环境变量
       },
     }
 
