@@ -4,7 +4,10 @@ services:
   frigate-config-tool:
     image: frigate-config-ui:latest  # 使用现有镜像作为基础
     container_name: frigate-config-tool-phase8
-    network_mode: host  # 使用 host 网络模式以访问本地网络和摄像头
+    networks:
+      - frigate-network
+    ports:
+      - "15000:15000"  # Web UI 端口
     volumes:
       # 挂载已构建的二进制和前端资源
       - ./target/release/frigate-config-tool:/app/frigate-config-tool:ro
@@ -22,11 +25,10 @@ services:
       - FRIGATE_CONFIG_DATA_DIR=/app/data
       - NODE_ENV=production
       - FRIGATE_HTTP_MODE=true
-      - PORT=1420
+      - PORT=15000
     restart: unless-stopped
-    # 注意: 使用 host 网络模式时，networks 配置会被忽略
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:1420/"]
+      test: ["CMD", "curl", "-f", "http://localhost:15000/"]
       interval: 30s
       timeout: 3s
       retries: 3
@@ -98,8 +100,8 @@ networks:
       - "com.frigate.network=true"
 
 # 注意事项:
-# - 主服务使用 host 网络模式以访问本地网络和摄像头
-# - host 网络模式仅在 Linux 上完全支持
-# - 在 macOS/Windows Docker Desktop 上，建议在 Linux 虚拟机或服务器上部署
-# - 使用 host 模式时，服务直接使用宿主机 1420 端口
-# - 确保宿主机 1420 端口未被占用
+# - 使用 bridge 网络模式，通过端口映射访问服务
+# - Web UI 通过 http://localhost:15000 访问
+# - 容器内部扫描功能可能受限，建议在宿主机或 Linux 环境使用 Tauri 桌面模式进行网络扫描
+# - macOS/Windows Docker Desktop 上推荐使用 bridge 网络模式
+# - 确保宿主机 15000 端口未被占用

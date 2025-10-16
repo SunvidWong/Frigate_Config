@@ -2,10 +2,16 @@ services:
   frigate-config-tool:
     image: ghcr.io/sunvidwong/frigate_config:latest
     container_name: frigate-config-tool
-    network_mode: host  # 使用 host 网络模式以访问本地网络和摄像头
-    # 注意: host 模式下不需要 ports 配置，服务直接使用宿主机 1420 端口
+    networks:
+      - frigate-network
+    ports:
+      - "15000:15000"  # Web UI 端口
     environment:
       - FRIGATE_HTTP_MODE=true
       - RUST_LOG=info
-      - PORT=1420
+      - PORT=15000
     restart: unless-stopped
+
+networks:
+  frigate-network:
+    driver: bridge
