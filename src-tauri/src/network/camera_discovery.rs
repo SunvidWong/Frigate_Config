@@ -197,12 +197,14 @@ pub async fn scan_ip(ip: IpAddr, ports: &[u16], timeout_ms: u64) -> Option<Disco
 
     for &port in ports {
         if check_port(ip, port, timeout_ms).await {
+            tracing::debug!("Found open port {} on {}", port, ip);
             camera.add_port(port);
             found_any = true;
         }
     }
 
     if found_any {
+        tracing::info!("Discovered camera at {} with ports {:?}", ip, camera.ports);
         // Try to resolve hostname
         camera.hostname = resolve_hostname(&ip).await;
         Some(camera)
@@ -222,6 +224,15 @@ async fn resolve_hostname(_ip: &IpAddr) -> Option<String> {
 /// Scan network for cameras
 pub async fn scan_network(config: ScanConfig) -> Result<Vec<DiscoveredCamera>, String> {
     let ips = parse_network_range(&config.network_range)?;
+    let total_ips = ips.len();
+    tracing::info!(
+        "Starting network scan of {} with {} IPs, ports: {:?}, timeout: {}ms",
+        config.network_range,
+        total_ips,
+        config.ports,
+        config.timeout_ms
+    );
+
     let mut cameras = Vec::new();
 
     // Use tokio tasks for concurrent scanning
@@ -255,6 +266,12 @@ pub async fn scan_network(config: ScanConfig) -> Result<Vec<DiscoveredCamera>, S
             cameras.push(camera);
         }
     }
+
+    tracing::info!(
+        "Network scan completed: found {} cameras out of {} IPs scanned",
+        cameras.len(),
+        total_ips
+    );
 
     Ok(cameras)
 }

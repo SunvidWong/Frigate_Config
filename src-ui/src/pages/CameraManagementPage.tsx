@@ -226,10 +226,14 @@ export default function CameraManagementPage() {
         // Tauri 桌面环境 - 调用 Tauri 命令
         console.log('[网络检测] Tauri 桌面模式：调用 Tauri 命令获取网络接口')
         const interfaces = await invoke<NetworkInterface[]>('get_network_interfaces')
-        setNetworkInterfaces(interfaces)
+
+        // 过滤掉 bridge 接口
+        const filteredInterfaces = interfaces.filter(iface => !iface.name.startsWith('bridge'))
+        console.log('[网络检测] ✓ 获取', interfaces.length, '个网络接口，过滤后', filteredInterfaces.length, '个')
+        setNetworkInterfaces(filteredInterfaces)
 
         // 默认选中默认网卡
-        const defaultInterface = interfaces.find(i => i.is_default)
+        const defaultInterface = filteredInterfaces.find(i => i.is_default)
         if (defaultInterface) {
           setSelectedNetworks(new Set([defaultInterface.subnet]))
         }
@@ -253,16 +257,20 @@ export default function CameraManagementPage() {
           const result = await response.json()
 
           if (result.success && result.data && result.data.length > 0) {
-            // 成功获取到网络接口
-            console.log('[网络检测] ✓ 成功从服务器获取', result.data.length, '个网络接口')
-            setNetworkInterfaces(result.data)
+            // 成功获取到网络接口，过滤掉 bridge 接口
+            const filteredInterfaces = result.data.filter((iface: NetworkInterface) =>
+              !iface.name.startsWith('bridge')
+            )
+
+            console.log('[网络检测] ✓ 成功从服务器获取', result.data.length, '个网络接口，过滤后', filteredInterfaces.length, '个')
+            setNetworkInterfaces(filteredInterfaces)
 
             // 默认选中默认网卡
-            const defaultInterface = result.data.find((i: NetworkInterface) => i.is_default)
+            const defaultInterface = filteredInterfaces.find((i: NetworkInterface) => i.is_default)
             if (defaultInterface) {
               setSelectedNetworks(new Set([defaultInterface.subnet]))
-            } else if (result.data.length > 0) {
-              setSelectedNetworks(new Set([result.data[0].subnet]))
+            } else if (filteredInterfaces.length > 0) {
+              setSelectedNetworks(new Set([filteredInterfaces[0].subnet]))
             }
           } else {
             throw new Error('No network interfaces returned from server')
@@ -403,11 +411,44 @@ export default function CameraManagementPage() {
 
     try {
       const networkRanges = Array.from(selectedNetworks)
-      const results = await invoke<any[]>('scan_multiple_networks', {
-        networkRanges,
-        ports: [80, 554, 8000, 8554],
-        timeoutMs: 2000
-      })
+      let results: any[] = []
+
+      if (isTauriEnvironment()) {
+        // Tauri 桌面模式 - 调用 Tauri 命令
+        console.log('[摄像头扫描] Tauri 模式：调用 Tauri 命令')
+        results = await invoke<any[]>('scan_multiple_networks', {
+          networkRanges,
+          ports: [80, 554, 8000, 8554],
+          timeoutMs: 2000
+        })
+      } else {
+        // 浏览器/Docker 模式 - 调用 HTTP API
+        console.log('[摄像头扫描] HTTP 模式：调用 HTTP API')
+
+        // 对每个网络范围分别调用 API（因为后端可能不支持多网段）
+        for (const networkRange of networkRanges) {
+          const response = await fetch('/api/scan_for_cameras', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              networkRange,
+              ports: [80, 554, 8000, 8554],
+              timeoutMs: 2000
+            })
+          })
+
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`)
+          }
+
+          const result = await response.json()
+          if (result.success && result.data) {
+            results = results.concat(result.data)
+          }
+        }
+      }
 
       // 为每个结果生成 RTSP URL
       const resultsWithRTSP = results.map(result => {
@@ -427,8 +468,9 @@ export default function CameraManagementPage() {
       })
 
       setScanResults(resultsWithRTSP)
+      console.log('[摄像头扫描] ✓ 扫描完成，找到', resultsWithRTSP.length, '个设备')
     } catch (error) {
-      console.error('Scan failed:', error)
+      console.error('[摄像头扫描] 扫描失败:', error)
       alert('扫描失败: ' + String(error))
     } finally {
       setIsScanning(false)
@@ -524,27 +566,10 @@ export default function CameraManagementPage() {
 
   return (
     <div className="h-screen flex flex-col bg-gray-50">
-      {/* 顶部标题栏 */}
-      <div className="bg-white shadow-sm border-b border-gray-200 px-6 py-4">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-gray-900">摄像头管理</h1>
-          <button
-            onClick={createNewCamera}
-            className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition"
-          >
-            新建摄像头
-          </button>
-        </div>
-      </div>
-
       {/* 主内容区域 - 左右分栏 */}
       <div className="flex-1 flex overflow-hidden">
         {/* 左侧: 摄像头发现 */}
         <div className="w-1/2 border-r border-gray-200 flex flex-col bg-white">
-          <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
-            <h2 className="text-lg font-semibold text-gray-900">摄像头发现</h2>
-            <p className="text-sm text-gray-500 mt-1">扫描网络中的IP摄像头</p>
-          </div>
 
           <div className="p-6 border-b border-gray-200">
             {/* 自动检测到的网络 */}
