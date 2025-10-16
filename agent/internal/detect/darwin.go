@@ -5,6 +5,7 @@ package detect
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"os/exec"
 	"regexp"
 	"strconv"
@@ -114,6 +115,12 @@ func (d *DarwinDetector) DetectGPUs() ([]schema.HardwareDevice, error) {
 // DetectTPUs detects TPU devices on macOS
 func (d *DarwinDetector) DetectTPUs() ([]schema.HardwareDevice, error) {
 	var devices []schema.HardwareDevice
+
+	// Check for Hailo NPUs (通过 PCIe 或 Thunderbolt 连接)
+	hailoDevices, err := d.detectHailoNPUs()
+	if err == nil {
+		devices = append(devices, hailoDevices...)
+	}
 
 	// Check for Google Coral USB TPUs
 	coralDevices, err := d.detectCoralUSBTPUs()
@@ -329,6 +336,168 @@ func (d *DarwinDetector) detectGPURegistryGPUs() ([]schema.HardwareDevice, error
 	}
 
 	return devices, nil
+}
+
+// detectHailoNPUs 检测 Hailo NPU 设备 (通过 PCIe 或 Thunderbolt)
+func (d *DarwinDetector) detectHailoNPUs() ([]schema.HardwareDevice, error) {
+	var devices []schema.HardwareDevice
+
+	// 方法1: 检查 /dev/hailo* 设备文件
+	// macOS 上 Hailo 设备可能通过 Thunderbolt 或外部 PCIe 连接
+	for i := 0; i < 4; i++ {
+		devicePath := fmt.Sprintf("/dev/hailo%d", i)
+		if _, err := os.Stat(devicePath); err == nil {
+			device := schema.HardwareDevice{
+				ID:               fmt.Sprintf("hailo-%d", i),
+				Type:             "tpu",
+				Name:             fmt.Sprintf("Hailo-8 NPU #%d", i),
+				DevicePath:       devicePath,
+				Capabilities:     []string{"hailo", "npu", "ai_accelerator"},
+				Driver:           stringPtr("hailo_pci"),
+				VendorID:         stringPtr("0x1e60"), // Hailo vendor ID
+				Platform:         d.platform,
+				Architecture:     d.architecture,
+				DetectionSource:  "device_file",
+				Available:        true,
+				InUse:            false,
+			}
+			devices = append(devices, device)
+		}
+	}
+
+	// 方法2: 通过 ioreg 查找 PCIe 设备 (Hailo vendor ID: 0x1e60)
+	cmd := exec.Command("ioreg", "-p", "IOService", "-w", "0", "-r")
+	output, err := cmd.Output()
+	if err == nil {
+		outputStr := string(output)
+		lines := strings.Split(outputStr, "\n")
+
+		for _, line := range lines {
+			lowerLine := strings.ToLower(line)
+			// 查找 Hailo 相关的设备
+			if strings.Contains(lowerLine, "hailo") ||
+			   strings.Contains(line, "1e60") { // Hailo vendor ID
+
+				// 提取设备信息
+				if !d.isHailoDeviceAlreadyDetected(devices, line) {
+					device := schema.HardwareDevice{
+						ID:               generateDarwinDeviceID("tpu", "Hailo-8"),
+						Type:             "tpu",
+						Name:             "Hailo-8 NPU",
+						DevicePath:       "/dev/hailo0",
+						Capabilities:     []string{"hailo", "npu", "ai_accelerator", "pcie"},
+						Driver:           stringPtr("hailo_pci"),
+						VendorID:         stringPtr("0x1e60"),
+						Platform:         d.platform,
+						Architecture:     d.architecture,
+						DetectionSource:  "ioreg",
+						Available:        true,
+						InUse:            false,
+					}
+					devices = append(devices, device)
+				}
+			}
+		}
+	}
+
+	// 方法3: 通过 system_profiler 查找 Thunderbolt/PCIe 设备
+	cmd = exec.Command("system_profiler", "SPThunderboltDataType", "-json")
+	output, err = cmd.Output()
+	if err == nil {
+		var thunderboltData map[string]interface{}
+		if err := json.Unmarshal(output, &thunderboltData); err == nil {
+			// 查找 Thunderbolt 连接的 Hailo 设备
+			d.findHailoInThunderbolt(thunderboltData, &devices)
+		}
+	}
+
+	// 方法4: 检查 PCIe 设备
+	cmd = exec.Command("system_profiler", "SPPCIDataType", "-json")
+	output, err = cmd.Output()
+	if err == nil {
+		var pciData map[string]interface{}
+		if err := json.Unmarshal(output, &pciData); err == nil {
+			// 查找 PCIe 连接的 Hailo 设备
+			d.findHailoInPCIe(pciData, &devices)
+		}
+	}
+
+	return devices, nil
+}
+
+// isHailoDeviceAlreadyDetected 检查设备是否已经被检测到
+func (d *DarwinDetector) isHailoDeviceAlreadyDetected(devices []schema.HardwareDevice, line string) bool {
+	for _, device := range devices {
+		if device.Type == "tpu" && strings.Contains(device.Name, "Hailo") {
+			return true
+		}
+	}
+	return false
+}
+
+// findHailoInThunderbolt 在 Thunderbolt 数据中查找 Hailo 设备
+func (d *DarwinDetector) findHailoInThunderbolt(data map[string]interface{}, devices *[]schema.HardwareDevice) {
+	if thunderboltData, ok := data["SPThunderboltDataType"]; ok {
+		if tbArray, ok := thunderboltData.([]interface{}); ok {
+			for _, item := range tbArray {
+				if tbDevice, ok := item.(map[string]interface{}); ok {
+					// 检查设备名称或供应商ID
+					if vendor, ok := tbDevice["Vendor ID"].(string); ok {
+						if strings.Contains(vendor, "1e60") { // Hailo vendor ID
+							device := schema.HardwareDevice{
+								ID:               "hailo-thunderbolt",
+								Type:             "tpu",
+								Name:             "Hailo-8 NPU (Thunderbolt)",
+								DevicePath:       "/dev/hailo0",
+								Capabilities:     []string{"hailo", "npu", "ai_accelerator", "thunderbolt"},
+								Driver:           stringPtr("hailo_pci"),
+								VendorID:         stringPtr("0x1e60"),
+								Platform:         d.platform,
+								Architecture:     d.architecture,
+								DetectionSource:  "thunderbolt",
+								Available:        true,
+								InUse:            false,
+							}
+							*devices = append(*devices, device)
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+// findHailoInPCIe 在 PCIe 数据中查找 Hailo 设备
+func (d *DarwinDetector) findHailoInPCIe(data map[string]interface{}, devices *[]schema.HardwareDevice) {
+	if pciData, ok := data["SPPCIDataType"]; ok {
+		if pciArray, ok := pciData.([]interface{}); ok {
+			for _, item := range pciArray {
+				if pciDevice, ok := item.(map[string]interface{}); ok {
+					// 检查供应商ID或设备名称
+					if vendor, ok := pciDevice["Vendor"].(string); ok {
+						if strings.Contains(strings.ToLower(vendor), "hailo") ||
+						   strings.Contains(vendor, "1e60") {
+							device := schema.HardwareDevice{
+								ID:               "hailo-pcie",
+								Type:             "tpu",
+								Name:             "Hailo-8 NPU (PCIe)",
+								DevicePath:       "/dev/hailo0",
+								Capabilities:     []string{"hailo", "npu", "ai_accelerator", "pcie"},
+								Driver:           stringPtr("hailo_pci"),
+								VendorID:         stringPtr("0x1e60"),
+								Platform:         d.platform,
+								Architecture:     d.architecture,
+								DetectionSource:  "pcie",
+								Available:        true,
+								InUse:            false,
+							}
+							*devices = append(*devices, device)
+						}
+					}
+				}
+			}
+		}
+	}
 }
 
 // detectCoralUSBTPUs detects Google Coral USB TPUs on macOS
