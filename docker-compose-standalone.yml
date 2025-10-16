@@ -9,6 +9,7 @@ services:
     image: ghcr.io/blakeblackshear/frigate:stable
     container_name: frigate
     restart: unless-stopped
+    network_mode: host  # 使用 host 网络模式以访问摄像头 RTSP 流
     privileged: true  # 需要访问硬件加速
     shm_size: "256mb"  # 增加共享内存用于对象检测
 
@@ -29,18 +30,18 @@ services:
       # 时区设置
       - /etc/localtime:/etc/localtime:ro
 
-    ports:
-      - "5002:5000"     # Web UI (使用 5002 避免端口冲突)
-      - "8554:8554"     # RTSP feeds
-      - "8555:8555/tcp" # WebRTC
-      - "8555:8555/udp" # WebRTC
+    # 注意: host 模式下不需要 ports 配置，服务直接使用宿主机端口
+    # ports:
+    #   - "5000:5000"     # Web UI (默认 5000)
+    #   - "8554:8554"     # RTSP feeds
+    #   - "8555:8555/tcp" # WebRTC
+    #   - "8555:8555/udp" # WebRTC
 
     environment:
       FRIGATE_RTSP_PASSWORD: "password"
       TZ: "Asia/Shanghai"
 
-    networks:
-      - frigate-net
+    # 注意: 使用 host 网络模式时，networks 配置会被忽略
 
     labels:
       - "com.frigate.managed=true"
@@ -51,8 +52,7 @@ services:
     image: redis:7-alpine
     container_name: frigate-redis
     restart: unless-stopped
-    networks:
-      - frigate-net
+    network_mode: host  # 使用 host 网络模式与 Frigate 通信
     command: redis-server --save 60 1 --loglevel warning
 
   # MQTT Broker (可选 - 用于 Home Assistant 集成)
@@ -60,14 +60,14 @@ services:
     image: eclipse-mosquitto:2
     container_name: frigate-mqtt
     restart: unless-stopped
-    ports:
-      - "1883:1883"
-      - "9001:9001"
+    network_mode: host  # 使用 host 网络模式
+    # 注意: host 模式下不需要 ports 配置
+    # ports:
+    #   - "1883:1883"
+    #   - "9001:9001"
     volumes:
       - mosquitto-data:/mosquitto/data
       - mosquitto-log:/mosquitto/log
-    networks:
-      - frigate-net
 
 networks:
   frigate-net:
@@ -98,3 +98,9 @@ volumes:
 # 5. 访问:
 #    - Frigate Config Tool: http://localhost:1420 (主机运行)
 #    - Frigate Web UI: http://localhost:5000
+#
+# 注意事项:
+# - 使用 host 网络模式，所有服务直接使用宿主机端口
+# - host 网络模式仅在 Linux 上完全支持
+# - macOS/Windows Docker Desktop 上 host 模式行为不同，建议使用 Linux 主机部署
+# - 确保宿主机端口（1420, 5000, 8554, 8555, 1883, 9001）未被占用
