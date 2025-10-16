@@ -3,11 +3,11 @@ import HardwarePage from './pages/HardwarePage'
 import CamerasPage from './pages/CamerasPage'
 import CameraDiscoveryPage from './pages/CameraDiscoveryPage'
 import ConfigEditorPage from './pages/ConfigEditorPage'
-import ConflictResolutionPage from './pages/ConflictResolutionPage'
 import ManualConfig from './pages/ManualConfig'
 import DeployPage from './pages/DeployPage'
 import DiskMappingPage from './pages/DiskMappingPage'
 import LogsPage from './pages/LogsPage'
+import SystemStatus from './components/SystemStatus'
 
 function App() {
   return (
@@ -26,7 +26,6 @@ function AppContent() {
     { path: '/camera-discovery', label: '摄像头发现', icon: '🔍' },
     { path: '/cameras', label: '相机配置', icon: '📷' },
     { path: '/config-editor', label: '配置编辑器', icon: '📝' },
-    { path: '/conflict-resolution', label: '冲突解决', icon: '🔀' },
     { path: '/manual-config', label: '手动配置', icon: '⚙️' },
     { path: '/deploy', label: '部署', icon: '🚀' },
     { path: '/disk-mapping', label: '磁盘映射', icon: '💾' },
@@ -61,6 +60,10 @@ function AppContent() {
                 ))}
               </div>
             </div>
+            {/* Phase 4 - 系统状态指示器 */}
+            <div className="hidden lg:flex items-center">
+              <SystemStatus />
+            </div>
           </div>
         </div>
       </nav>
@@ -72,7 +75,6 @@ function AppContent() {
           <Route path="/camera-discovery" element={<CameraDiscoveryPage />} />
           <Route path="/cameras" element={<CamerasPage />} />
           <Route path="/config-editor" element={<ConfigEditorPage />} />
-          <Route path="/conflict-resolution" element={<ConflictResolutionPage />} />
           <Route path="/manual-config" element={<ManualConfig />} />
           <Route path="/deploy" element={<DeployPage />} />
           <Route path="/disk-mapping" element={<DiskMappingPage />} />

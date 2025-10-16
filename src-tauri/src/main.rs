@@ -111,6 +111,8 @@ fn run_tauri_mode() {
             commands::camera::guess_network_range_command,
             commands::camera::scan_for_cameras,
             commands::camera::quick_scan_cameras,
+            // System status commands (Phase 4 - T034)
+            commands::system::check_system_status,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
