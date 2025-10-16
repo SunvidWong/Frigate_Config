@@ -95,6 +95,9 @@ const DeployPage: React.FC = () => {
   const [deploymentStep, setDeploymentStep] = useState<'idle' | 'validating' | 'deploying' | 'health_check' | 'completed' | 'failed'>('idle')
   const [deviceValidation, setDeviceValidation] = useState<DeviceValidationResponse | null>(null)
   const [showDeviceWarnings, setShowDeviceWarnings] = useState(false)
+  // Phase 3 - 添加实时状态更新相关状态
+  const [deploymentLogs, setDeploymentLogs] = useState<string[]>([])
+  const [statusPollingInterval, setStatusPollingInterval] = useState<NodeJS.Timer | null>(null)
 
   // Tauri commands
   const {
@@ -134,9 +137,29 @@ const DeployPage: React.FC = () => {
     execute: validateDevices,
   } = useTauriCommand<DeviceValidationResponse>('validate_hardware_devices')
 
-  // Load deployment history on mount
+  // Phase 3 - 添加获取已保存硬件设备的命令
+  const {
+    data: savedDevices,
+    loading: loadingDevices,
+    execute: loadSavedDevices,
+  } = useTauriCommand<string[]>('get_saved_hardware_devices')
+
+  // Phase 3 - 添加获取部署日志的命令
+  const {
+    data: logsData,
+    execute: fetchLogs,
+  } = useTauriCommand<{ logs: string[]; total_lines: number }>('get_deployment_logs')
+
+  // Phase 3 - 添加获取部署状态的命令
+  const {
+    data: statusData,
+    execute: fetchStatus,
+  } = useTauriCommand<{ status: string; container_id: string | null }>('get_deployment_status_cmd')
+
+  // Load deployment history and saved devices on mount
   useEffect(() => {
     loadHistory()
+    loadSavedDevices() // Phase 3 - 加载已保存的硬件设备
 
     // Generate docker-compose.yml preview
     const compose = DockerComposeGenerator.generateCompose({
@@ -185,10 +208,13 @@ const DeployPage: React.FC = () => {
       setCurrentDeployment(deploymentData)
       if (deploymentData.success && deploymentData.container_id) {
         setDeploymentStep('health_check')
+        // Phase 3 - 开始实时状态轮询
+        startStatusPolling(deploymentData.container_id)
         // Automatically start health check
         checkHealth({ container_id: deploymentData.container_id })
       } else {
         setDeploymentStep('failed')
+        stopStatusPolling()
       }
     }
   }, [deploymentData])
@@ -200,6 +226,10 @@ const DeployPage: React.FC = () => {
       const allPassed = healthData.checks.every(c => c.passed)
       setDeploymentStep(allPassed ? 'completed' : 'failed')
       setIsDeploying(false)
+      // Phase 3 - 停止轮询
+      if (allPassed || !allPassed) {
+        stopStatusPolling()
+      }
     }
   }, [healthData])
 
@@ -212,6 +242,22 @@ const DeployPage: React.FC = () => {
       }
     }
   }, [deviceValidationData])
+
+  // Phase 3 - 处理日志数据更新
+  useEffect(() => {
+    if (logsData) {
+      setDeploymentLogs(logsData.logs)
+    }
+  }, [logsData])
+
+  // Phase 3 - 清理轮询定时器
+  useEffect(() => {
+    return () => {
+      if (statusPollingInterval) {
+        clearInterval(statusPollingInterval)
+      }
+    }
+  }, [statusPollingInterval])
 
   // Handle validation
   const handleValidate = async () => {
@@ -232,10 +278,13 @@ const DeployPage: React.FC = () => {
     setIsDeploying(true)
     setDeploymentStep('deploying')
 
+    // Phase 3 - 使用已保存的硬件设备列表
+    const deviceList = savedDevices || []
+
     const config: DeploymentConfig = {
       config_path: configPath,
       method: deploymentMethod,
-      devices: [],
+      devices: deviceList, // Phase 3 - 使用从硬件检测页保存的设备列表
       volumes: [
         { host_path: '/etc/frigate', container_path: '/config' },
         { host_path: '/media/frigate', container_path: '/media/frigate' },
@@ -273,6 +322,34 @@ const DeployPage: React.FC = () => {
     loadHistory()
     setDeploymentStep('idle')
     setCurrentDeployment(null)
+    stopStatusPolling() // Phase 3 - 停止轮询
+  }
+
+  // Phase 3 - 开始实时状态轮询
+  const startStatusPolling = (containerId: string) => {
+    // 停止之前的轮询
+    stopStatusPolling()
+
+    // 立即获取一次日志
+    fetchLogs({ container_id: containerId, tail_lines: 50 })
+
+    // 设置轮询间隔（每2秒更新一次）
+    const interval = setInterval(() => {
+      // 获取最新状态
+      fetchStatus()
+      // 获取最新日志
+      fetchLogs({ container_id: containerId, tail_lines: 50 })
+    }, 2000)
+
+    setStatusPollingInterval(interval)
+  }
+
+  // Phase 3 - 停止实时状态轮询
+  const stopStatusPolling = () => {
+    if (statusPollingInterval) {
+      clearInterval(statusPollingInterval)
+      setStatusPollingInterval(null)
+    }
   }
 
 
@@ -371,6 +448,35 @@ const DeployPage: React.FC = () => {
               <option value="DockerRun">Docker Run</option>
               <option value="DockerCompose">Docker Compose</option>
             </select>
+          </div>
+        </div>
+
+        {/* Phase 3 - 显示已配置的硬件设备 */}
+        <div className="mt-4 pt-4 border-t border-gray-200">
+          <div className="flex items-center justify-between mb-2">
+            <div className="text-sm font-medium text-gray-700">硬件设备配置</div>
+            <a
+              href="/hardware"
+              className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+            >
+              管理硬件设备 →
+            </a>
+          </div>
+          <div className="text-sm text-gray-600">
+            {loadingDevices ? (
+              <p>正在加载设备...</p>
+            ) : savedDevices && savedDevices.length > 0 ? (
+              <div>
+                <p className="mb-2">已配置 <span className="font-semibold text-green-600">{savedDevices.length}</span> 个硬件设备</p>
+                <div className="space-y-1 text-xs bg-gray-50 p-2 rounded max-h-32 overflow-y-auto">
+                  {savedDevices.map((device, idx) => (
+                    <div key={idx} className="font-mono text-gray-700">• {device}</div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <p>尚未配置硬件设备。前往 <span className="font-semibold">硬件检测</span> 页面添加 GPU/TPU 加速器。</p>
+            )}
           </div>
         </div>
 
@@ -487,6 +593,25 @@ const DeployPage: React.FC = () => {
         currentDeployment={currentDeployment}
         error={deploymentError}
       />
+
+      {/* Phase 3 - 实时部署日志 */}
+      {deploymentStep === 'deploying' && deploymentLogs.length > 0 && (
+        <Card className="mb-6 bg-gray-50">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-lg font-semibold">部署日志（实时）</h3>
+            <span className="text-sm text-gray-500">每2秒更新</span>
+          </div>
+          <div className="bg-gray-900 text-gray-100 p-4 rounded-md overflow-x-auto max-h-64 overflow-y-auto">
+            <pre className="text-xs font-mono">
+              {deploymentLogs.map((log, idx) => (
+                <div key={idx} className="hover:bg-gray-800">
+                  {log}
+                </div>
+              ))}
+            </pre>
+          </div>
+        </Card>
+      )}
 
       {/* Validation Results */}
       {validationResult && (
