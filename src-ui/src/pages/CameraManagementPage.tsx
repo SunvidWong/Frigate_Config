@@ -119,7 +119,24 @@ export default function CameraManagementPage() {
     return typeof (window as any).__TAURI__ !== 'undefined'
   }
 
-  // 使用 WebRTC 获取本地 IP 地址（浏览器模式）
+  // 检查是否为私有 IP（局域网 IP）
+  const isPrivateIP = (ip: string): boolean => {
+    const parts = ip.split('.').map(Number)
+    if (parts.length !== 4) return false
+
+    // 10.0.0.0 - 10.255.255.255
+    if (parts[0] === 10) return true
+
+    // 172.16.0.0 - 172.31.255.255
+    if (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31) return true
+
+    // 192.168.0.0 - 192.168.255.255
+    if (parts[0] === 192 && parts[1] === 168) return true
+
+    return false
+  }
+
+  // 使用 WebRTC 获取本地局域网 IP 地址（浏览器模式）
   const getLocalIPsViaWebRTC = (): Promise<string[]> => {
     return new Promise((resolve) => {
       const ips: string[] = []
@@ -132,8 +149,9 @@ export default function CameraManagementPage() {
         return
       }
 
+      // 不使用 STUN 服务器，只获取本地候选
       const pc = new RTCPeerConnection({
-        iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+        iceServers: []
       })
 
       pc.createDataChannel('')
@@ -155,8 +173,8 @@ export default function CameraManagementPage() {
 
         if (match && match[0]) {
           const ip = match[0]
-          // 过滤掉回环地址和无效地址
-          if (!ip.startsWith('127.') && !ip.startsWith('0.') && !ips.includes(ip)) {
+          // 只保留私有 IP 地址（局域网 IP）
+          if (isPrivateIP(ip) && !ips.includes(ip)) {
             ips.push(ip)
           }
         }
@@ -166,7 +184,7 @@ export default function CameraManagementPage() {
       setTimeout(() => {
         pc.close()
         resolve(ips)
-      }, 2000)
+      }, 1500)
     })
   }
 
