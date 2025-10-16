@@ -108,6 +108,14 @@ async fn get_network_range() -> Result<Json<ApiResponse<String>>, AppError> {
     Ok(Json(ApiResponse::ok(range)))
 }
 
+/// Get all network interfaces
+async fn get_network_interfaces(
+) -> Result<Json<ApiResponse<Vec<crate::network::NetworkInterface>>>, AppError> {
+    info!("HTTP API: Get network interfaces");
+    let interfaces = camera::get_network_interfaces().await?;
+    Ok(Json(ApiResponse::ok(interfaces)))
+}
+
 /// Add hardware device
 async fn add_hardware_device(
     Json(req): Json<AddDeviceRequest>,
@@ -158,6 +166,7 @@ pub async fn run_http_server(port: u16) -> Result<(), Box<dyn std::error::Error>
         .route("/quick_scan_cameras", post(quick_scan))
         .route("/scan_for_cameras", post(custom_scan))
         .route("/guess_network_range_command", post(get_network_range))
+        .route("/get_network_interfaces", post(get_network_interfaces))
         .route("/add_hardware_device_to_config", post(add_hardware_device))
         .route("/get_saved_hardware_devices", post(get_hardware_devices))
         .route("/scan_pci_devices", post(scan_pci_devices))

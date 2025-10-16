@@ -223,8 +223,8 @@ export default function CameraManagementPage() {
   const loadNetworkInterfaces = async () => {
     try {
       if (isTauriEnvironment()) {
-        // Tauri 环境 - 调用后端 API
-        console.log('[网络检测] Tauri 模式：调用后端 API 获取网络接口')
+        // Tauri 桌面环境 - 调用 Tauri 命令
+        console.log('[网络检测] Tauri 桌面模式：调用 Tauri 命令获取网络接口')
         const interfaces = await invoke<NetworkInterface[]>('get_network_interfaces')
         setNetworkInterfaces(interfaces)
 
@@ -234,40 +234,72 @@ export default function CameraManagementPage() {
           setSelectedNetworks(new Set([defaultInterface.subnet]))
         }
       } else {
-        // 浏览器环境 - 使用 WebRTC 获取本地 IP
-        console.log('[网络检测] 浏览器模式：使用 WebRTC 获取本地 IP')
-        const localIPs = await getLocalIPsViaWebRTC()
+        // 浏览器环境 - 调用 HTTP API（Docker 容器模式）
+        console.log('[网络检测] 浏览器/Docker 模式：调用 HTTP API 获取服务器网络接口')
 
-        if (localIPs.length > 0) {
-          // 成功获取到本地 IP，转换为网络接口列表
-          const interfaces: NetworkInterface[] = localIPs.map((ip, index) => ({
-            name: `本地网卡 ${index + 1}`,
-            ip: ip,
-            subnet: ipToSubnet(ip),
-            is_default: index === 0
-          }))
+        try {
+          // 尝试调用后端 HTTP API
+          const response = await fetch('/api/get_network_interfaces', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          })
 
-          console.log('[网络检测] ✓ 成功检测到', interfaces.length, '个网络接口:', interfaces)
-          setNetworkInterfaces(interfaces)
-
-          // 默认选中第一个网卡
-          setSelectedNetworks(new Set([interfaces[0].subnet]))
-        } else {
-          // 无法获取本地 IP，显示提示信息
-          console.warn('[网络检测] ⚠ 无法自动检测本地 IP，请手动添加网段')
-          const placeholder: NetworkInterface = {
-            name: '⚠ 无法自动检测（请手动添加）',
-            ip: '',
-            subnet: '',
-            is_default: false
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`)
           }
-          setNetworkInterfaces([placeholder])
-          setSelectedNetworks(new Set())
+
+          const result = await response.json()
+
+          if (result.success && result.data && result.data.length > 0) {
+            // 成功获取到网络接口
+            console.log('[网络检测] ✓ 成功从服务器获取', result.data.length, '个网络接口')
+            setNetworkInterfaces(result.data)
+
+            // 默认选中默认网卡
+            const defaultInterface = result.data.find((i: NetworkInterface) => i.is_default)
+            if (defaultInterface) {
+              setSelectedNetworks(new Set([defaultInterface.subnet]))
+            } else if (result.data.length > 0) {
+              setSelectedNetworks(new Set([result.data[0].subnet]))
+            }
+          } else {
+            throw new Error('No network interfaces returned from server')
+          }
+        } catch (apiError) {
+          // HTTP API 调用失败，回退到 WebRTC 检测客户端 IP
+          console.warn('[网络检测] HTTP API 失败，尝试使用 WebRTC 检测客户端 IP:', apiError)
+          const localIPs = await getLocalIPsViaWebRTC()
+
+          if (localIPs.length > 0) {
+            // 成功获取到客户端本地 IP
+            const interfaces: NetworkInterface[] = localIPs.map((ip, index) => ({
+              name: `客户端网卡 ${index + 1}`,
+              ip: ip,
+              subnet: ipToSubnet(ip),
+              is_default: index === 0
+            }))
+
+            console.log('[网络检测] ✓ WebRTC 检测到', interfaces.length, '个客户端 IP:', interfaces)
+            setNetworkInterfaces(interfaces)
+            setSelectedNetworks(new Set([interfaces[0].subnet]))
+          } else {
+            // 完全无法获取，显示提示
+            console.warn('[网络检测] ⚠ 无法自动检测网络，请手动添加网段')
+            const placeholder: NetworkInterface = {
+              name: '⚠ 无法自动检测（请手动添加）',
+              ip: '',
+              subnet: '',
+              is_default: false
+            }
+            setNetworkInterfaces([placeholder])
+            setSelectedNetworks(new Set())
+          }
         }
       }
     } catch (error) {
       console.error('[网络检测] 检测失败:', error)
-      // 添加一个默认网络作为后备
       const fallback: NetworkInterface = {
         name: '检测失败（请手动添加）',
         ip: '',
