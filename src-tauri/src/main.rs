@@ -99,6 +99,7 @@ fn run_tauri_mode() {
             commands::deploy::scan_pci_devices,
             commands::deploy::set_docker_compose_path,
             commands::deploy::get_docker_compose_path,
+            commands::deploy::save_docker_compose_content,
             // Disk commands (Phase 8 - T175, T180)
             commands::disk::get_disk_info_command,
             commands::disk::validate_volume_path_command,

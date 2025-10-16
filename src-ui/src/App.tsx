@@ -1,10 +1,8 @@
 import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom'
-import HardwarePage from './pages/HardwarePage'
-import CamerasPage from './pages/CamerasPage'
-import CameraDiscoveryPage from './pages/CameraDiscoveryPage'
+import CameraManagementPage from './pages/CameraManagementPage'
 import ConfigEditorPage from './pages/ConfigEditorPage'
 import ManualConfig from './pages/ManualConfig'
-import DeployPage from './pages/DeployPage'
+import ConfigDeployPage from './pages/ConfigDeployPage'
 import DiskMappingPage from './pages/DiskMappingPage'
 import LogsPage from './pages/LogsPage'
 import SystemStatus from './components/SystemStatus'
@@ -22,12 +20,10 @@ function AppContent() {
 
   const navItems = [
     { path: '/', label: '主页', icon: '🏠' },
-    { path: '/hardware', label: '硬件检测', icon: '🔧' },
-    { path: '/camera-discovery', label: '摄像头发现', icon: '🔍' },
-    { path: '/cameras', label: '相机配置', icon: '📷' },
+    { path: '/config-deploy', label: '配置与部署', icon: '🚀' },
+    { path: '/cameras', label: '摄像头管理', icon: '📷' },
     { path: '/config-editor', label: '配置编辑器', icon: '📝' },
     { path: '/manual-config', label: '手动配置', icon: '⚙️' },
-    { path: '/deploy', label: '部署', icon: '🚀' },
     { path: '/disk-mapping', label: '磁盘映射', icon: '💾' },
     { path: '/logs', label: '日志', icon: '📋' },
   ]
@@ -71,12 +67,10 @@ function AppContent() {
       <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         <Routes>
           <Route path="/" element={<HomePage />} />
-          <Route path="/hardware" element={<HardwarePage />} />
-          <Route path="/camera-discovery" element={<CameraDiscoveryPage />} />
-          <Route path="/cameras" element={<CamerasPage />} />
+          <Route path="/config-deploy" element={<ConfigDeployPage />} />
+          <Route path="/cameras" element={<CameraManagementPage />} />
           <Route path="/config-editor" element={<ConfigEditorPage />} />
           <Route path="/manual-config" element={<ManualConfig />} />
-          <Route path="/deploy" element={<DeployPage />} />
           <Route path="/disk-mapping" element={<DiskMappingPage />} />
           <Route path="/logs" element={<LogsPage />} />
         </Routes>

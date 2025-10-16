@@ -1486,3 +1486,45 @@ pub struct GetDockerComposePathResponse {
     pub is_custom: bool,
     pub message: String,
 }
+
+// ========== Docker Compose Content Management ==========
+
+/// 保存 docker-compose.yml 内容到文件
+#[tauri::command]
+pub async fn save_docker_compose_content(
+    path: String,
+    content: String,
+    _state: State<'_, Arc<Mutex<AppState>>>,
+) -> Result<SaveDockerComposeContentResponse, AppError> {
+    info!("保存 docker-compose.yml 内容到: {}", path);
+
+    // 确保父目录存在
+    if let Some(parent) = std::path::Path::new(&path).parent() {
+        tokio::fs::create_dir_all(parent)
+            .await
+            .map_err(|e| AppError::Deployment(format!("创建目录失败: {}", e)))?;
+    }
+
+    // 写入文件
+    tokio::fs::write(&path, &content)
+        .await
+        .map_err(|e| AppError::Deployment(format!("写入文件失败: {}", e)))?;
+
+    info!("✓ 成功保存 docker-compose.yml ({} 字节)", content.len());
+
+    Ok(SaveDockerComposeContentResponse {
+        success: true,
+        message: format!("已保存到: {}", path),
+        path,
+        bytes_written: content.len(),
+    })
+}
+
+/// 响应：保存 docker-compose.yml 内容
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SaveDockerComposeContentResponse {
+    pub success: bool,
+    pub message: String,
+    pub path: String,
+    pub bytes_written: usize,
+}
