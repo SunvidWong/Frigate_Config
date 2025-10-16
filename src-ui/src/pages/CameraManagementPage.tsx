@@ -119,6 +119,67 @@ export default function CameraManagementPage() {
     return typeof (window as any).__TAURI__ !== 'undefined'
   }
 
+  // 使用 WebRTC 获取本地 IP 地址（浏览器模式）
+  const getLocalIPsViaWebRTC = (): Promise<string[]> => {
+    return new Promise((resolve) => {
+      const ips: string[] = []
+      const RTCPeerConnection = (window as any).RTCPeerConnection ||
+                                (window as any).webkitRTCPeerConnection ||
+                                (window as any).mozRTCPeerConnection
+
+      if (!RTCPeerConnection) {
+        resolve([])
+        return
+      }
+
+      const pc = new RTCPeerConnection({
+        iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+      })
+
+      pc.createDataChannel('')
+
+      pc.createOffer()
+        .then((offer: any) => pc.setLocalDescription(offer))
+        .catch(() => {})
+
+      pc.onicecandidate = (ice: any) => {
+        if (!ice || !ice.candidate || !ice.candidate.candidate) {
+          pc.close()
+          resolve(ips)
+          return
+        }
+
+        const candidate = ice.candidate.candidate
+        const ipRegex = /([0-9]{1,3}\.){3}[0-9]{1,3}/
+        const match = ipRegex.exec(candidate)
+
+        if (match && match[0]) {
+          const ip = match[0]
+          // 过滤掉回环地址和无效地址
+          if (!ip.startsWith('127.') && !ip.startsWith('0.') && !ips.includes(ip)) {
+            ips.push(ip)
+          }
+        }
+      }
+
+      // 设置超时
+      setTimeout(() => {
+        pc.close()
+        resolve(ips)
+      }, 2000)
+    })
+  }
+
+  // 将 IP 地址转换为网段
+  const ipToSubnet = (ip: string): string => {
+    const parts = ip.split('.')
+    if (parts.length === 4) {
+      // 对于私有 IP，假设是 /24 网段
+      return `${parts[0]}.${parts[1]}.${parts[2]}.0/24`
+    }
+    return ip
+  }
+
   // 加载网络接口
   const loadNetworkInterfaces = async () => {
     try {
@@ -133,30 +194,48 @@ export default function CameraManagementPage() {
           setSelectedNetworks(new Set([defaultInterface.subnet]))
         }
       } else {
-        // 浏览器环境 - 使用常见的网络范围作为默认选项
-        const commonNetworks: NetworkInterface[] = [
-          {
-            name: 'eth0 (默认)',
-            ip: '192.168.1.100',
-            subnet: '192.168.1.0/24',
-            is_default: true
-          },
-          {
-            name: 'wlan0',
-            ip: '192.168.50.100',
-            subnet: '192.168.50.0/24',
-            is_default: false
-          },
-          {
-            name: '其他常见网段',
-            ip: '10.0.0.100',
-            subnet: '10.0.0.0/24',
-            is_default: false
+        // 浏览器环境 - 尝试使用 WebRTC 获取本地 IP
+        const localIPs = await getLocalIPsViaWebRTC()
+
+        if (localIPs.length > 0) {
+          // 使用检测到的本地 IP 创建网络接口列表
+          const detectedNetworks: NetworkInterface[] = localIPs.map((ip, index) => ({
+            name: index === 0 ? `本地网络 (自动检测)` : `本地网络 ${index + 1}`,
+            ip: ip,
+            subnet: ipToSubnet(ip),
+            is_default: index === 0
+          }))
+
+          setNetworkInterfaces(detectedNetworks)
+          // 默认选中第一个检测到的网络
+          if (detectedNetworks.length > 0) {
+            setSelectedNetworks(new Set([detectedNetworks[0].subnet]))
           }
-        ]
-        setNetworkInterfaces(commonNetworks)
-        // 默认选中第一个网络
-        setSelectedNetworks(new Set([commonNetworks[0].subnet]))
+        } else {
+          // WebRTC 失败，使用常见的网络范围作为后备
+          const commonNetworks: NetworkInterface[] = [
+            {
+              name: 'eth0 (默认)',
+              ip: '192.168.1.100',
+              subnet: '192.168.1.0/24',
+              is_default: true
+            },
+            {
+              name: 'wlan0',
+              ip: '192.168.50.100',
+              subnet: '192.168.50.0/24',
+              is_default: false
+            },
+            {
+              name: '其他常见网段',
+              ip: '10.0.0.100',
+              subnet: '10.0.0.0/24',
+              is_default: false
+            }
+          ]
+          setNetworkInterfaces(commonNetworks)
+          setSelectedNetworks(new Set([commonNetworks[0].subnet]))
+        }
       }
     } catch (error) {
       console.error('Failed to load network interfaces:', error)
