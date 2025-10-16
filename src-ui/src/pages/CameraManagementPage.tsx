@@ -144,47 +144,77 @@ export default function CameraManagementPage() {
                                 (window as any).webkitRTCPeerConnection ||
                                 (window as any).mozRTCPeerConnection
 
+      console.log('[WebRTC] RTCPeerConnection 支持:', !!RTCPeerConnection)
+
       if (!RTCPeerConnection) {
+        console.log('[WebRTC] 浏览器不支持 RTCPeerConnection')
         resolve([])
         return
       }
 
-      // 不使用 STUN 服务器，只获取本地候选
-      const pc = new RTCPeerConnection({
-        iceServers: []
-      })
+      try {
+        // 使用 STUN 服务器但设置短超时，优先获取 srflx 候选
+        const pc = new RTCPeerConnection({
+          iceServers: [
+            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:stun1.l.google.com:19302' }
+          ]
+        })
 
-      pc.createDataChannel('')
+        console.log('[WebRTC] RTCPeerConnection 创建成功')
 
-      pc.createOffer()
-        .then((offer: any) => pc.setLocalDescription(offer))
-        .catch(() => {})
+        pc.createDataChannel('')
 
-      pc.onicecandidate = (ice: any) => {
-        if (!ice || !ice.candidate || !ice.candidate.candidate) {
-          pc.close()
-          resolve(ips)
-          return
-        }
+        pc.createOffer()
+          .then((offer: any) => {
+            console.log('[WebRTC] Offer 创建成功')
+            return pc.setLocalDescription(offer)
+          })
+          .then(() => {
+            console.log('[WebRTC] LocalDescription 设置成功')
+          })
+          .catch((err: any) => {
+            console.error('[WebRTC] Offer/Description 失败:', err)
+          })
 
-        const candidate = ice.candidate.candidate
-        const ipRegex = /([0-9]{1,3}\.){3}[0-9]{1,3}/
-        const match = ipRegex.exec(candidate)
+        pc.onicecandidate = (ice: any) => {
+          if (!ice || !ice.candidate || !ice.candidate.candidate) {
+            console.log('[WebRTC] ICE 收集完成，找到的 IP:', ips)
+            pc.close()
+            resolve(ips)
+            return
+          }
 
-        if (match && match[0]) {
-          const ip = match[0]
-          // 只保留私有 IP 地址（局域网 IP）
-          if (isPrivateIP(ip) && !ips.includes(ip)) {
-            ips.push(ip)
+          const candidate = ice.candidate.candidate
+          console.log('[WebRTC] 收到候选:', candidate)
+
+          // 提取所有 IP 地址（包括 IPv4）
+          const ipRegex = /([0-9]{1,3}\.){3}[0-9]{1,3}/g
+          const matches = candidate.match(ipRegex)
+
+          if (matches) {
+            matches.forEach((ip: string) => {
+              console.log('[WebRTC] 提取到 IP:', ip, '是否为私有 IP:', isPrivateIP(ip))
+
+              // 只保留私有 IP 地址（局域网 IP）
+              if (isPrivateIP(ip) && !ips.includes(ip)) {
+                ips.push(ip)
+                console.log('[WebRTC] 添加 IP:', ip)
+              }
+            })
           }
         }
-      }
 
-      // 设置超时
-      setTimeout(() => {
-        pc.close()
-        resolve(ips)
-      }, 1500)
+        // 设置较短超时，优先获取本地候选
+        setTimeout(() => {
+          console.log('[WebRTC] 超时，最终结果:', ips)
+          pc.close()
+          resolve(ips)
+        }, 3000)
+      } catch (error) {
+        console.error('[WebRTC] 异常:', error)
+        resolve([])
+      }
     })
   }
 
@@ -212,48 +242,38 @@ export default function CameraManagementPage() {
           setSelectedNetworks(new Set([defaultInterface.subnet]))
         }
       } else {
-        // 浏览器环境 - 尝试使用 WebRTC 获取本地 IP
-        const localIPs = await getLocalIPsViaWebRTC()
-
-        if (localIPs.length > 0) {
-          // 使用检测到的本地 IP 创建网络接口列表
-          const detectedNetworks: NetworkInterface[] = localIPs.map((ip, index) => ({
-            name: index === 0 ? `本地网络 (自动检测)` : `本地网络 ${index + 1}`,
-            ip: ip,
-            subnet: ipToSubnet(ip),
-            is_default: index === 0
-          }))
-
-          setNetworkInterfaces(detectedNetworks)
-          // 默认选中第一个检测到的网络
-          if (detectedNetworks.length > 0) {
-            setSelectedNetworks(new Set([detectedNetworks[0].subnet]))
+        // 浏览器环境 - 直接使用常见的网络范围
+        // 注意：由于浏览器隐私保护，无法自动获取本地 IP
+        // 用户可以通过"手动添加 IP 段"功能添加自己的网段
+        console.log('[摄像头管理] 浏览器模式：显示常见网络范围，用户可手动添加')
+        const commonNetworks: NetworkInterface[] = [
+          {
+            name: '192.168.1.x 网段（常见）',
+            ip: '192.168.1.1',
+            subnet: '192.168.1.0/24',
+            is_default: true
+          },
+          {
+            name: '192.168.0.x 网段',
+            ip: '192.168.0.1',
+            subnet: '192.168.0.0/24',
+            is_default: false
+          },
+          {
+            name: '10.0.0.x 网段',
+            ip: '10.0.0.1',
+            subnet: '10.0.0.0/24',
+            is_default: false
+          },
+          {
+            name: '172.16.0.x 网段',
+            ip: '172.16.0.1',
+            subnet: '172.16.0.0/24',
+            is_default: false
           }
-        } else {
-          // WebRTC 失败，使用常见的网络范围作为后备
-          const commonNetworks: NetworkInterface[] = [
-            {
-              name: 'eth0 (默认)',
-              ip: '192.168.1.100',
-              subnet: '192.168.1.0/24',
-              is_default: true
-            },
-            {
-              name: 'wlan0',
-              ip: '192.168.50.100',
-              subnet: '192.168.50.0/24',
-              is_default: false
-            },
-            {
-              name: '其他常见网段',
-              ip: '10.0.0.100',
-              subnet: '10.0.0.0/24',
-              is_default: false
-            }
-          ]
-          setNetworkInterfaces(commonNetworks)
-          setSelectedNetworks(new Set([commonNetworks[0].subnet]))
-        }
+        ]
+        setNetworkInterfaces(commonNetworks)
+        setSelectedNetworks(new Set([commonNetworks[0].subnet]))
       }
     } catch (error) {
       console.error('Failed to load network interfaces:', error)
