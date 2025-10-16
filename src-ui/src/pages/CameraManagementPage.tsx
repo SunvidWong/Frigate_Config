@@ -44,6 +44,16 @@ interface Camera {
   detector?: string
   detection_objects?: string[]
   zones?: any[]
+  // 录像配置
+  record_enabled?: boolean
+  record_retain_days?: number
+  record_mode?: 'all' | 'motion' | 'active_objects'
+  // 告警录像
+  alerts_retain_days?: number
+  alerts_retain_mode?: 'all' | 'motion' | 'active_objects'
+  // 检测录像
+  detections_retain_days?: number
+  detections_retain_mode?: 'all' | 'motion' | 'active_objects'
 }
 
 interface ScanResult {
@@ -87,7 +97,15 @@ export default function CameraManagementPage() {
     enabled: true,
     hardware_acceleration: 'auto',
     detector: 'default',
-    detection_objects: ['person', 'car']
+    detection_objects: ['person', 'car'],
+    // 录像配置默认值
+    record_enabled: true,
+    record_retain_days: 7,
+    record_mode: 'motion',
+    alerts_retain_days: 30,
+    alerts_retain_mode: 'all',
+    detections_retain_days: 10,
+    detections_retain_mode: 'active_objects'
   })
 
   useEffect(() => {
@@ -96,16 +114,49 @@ export default function CameraManagementPage() {
     loadSavedCustomNetworks()
   }, [])
 
+  // 检查是否在 Tauri 环境中
+  const isTauriEnvironment = () => {
+    return typeof (window as any).__TAURI__ !== 'undefined'
+  }
+
   // 加载网络接口
   const loadNetworkInterfaces = async () => {
     try {
-      const interfaces = await invoke<NetworkInterface[]>('get_network_interfaces')
-      setNetworkInterfaces(interfaces)
+      if (isTauriEnvironment()) {
+        // Tauri 环境 - 调用后端 API
+        const interfaces = await invoke<NetworkInterface[]>('get_network_interfaces')
+        setNetworkInterfaces(interfaces)
 
-      // 默认选中默认网卡
-      const defaultInterface = interfaces.find(i => i.is_default)
-      if (defaultInterface) {
-        setSelectedNetworks(new Set([defaultInterface.subnet]))
+        // 默认选中默认网卡
+        const defaultInterface = interfaces.find(i => i.is_default)
+        if (defaultInterface) {
+          setSelectedNetworks(new Set([defaultInterface.subnet]))
+        }
+      } else {
+        // 浏览器环境 - 使用常见的网络范围作为默认选项
+        const commonNetworks: NetworkInterface[] = [
+          {
+            name: 'eth0 (默认)',
+            ip: '192.168.1.100',
+            subnet: '192.168.1.0/24',
+            is_default: true
+          },
+          {
+            name: 'wlan0',
+            ip: '192.168.50.100',
+            subnet: '192.168.50.0/24',
+            is_default: false
+          },
+          {
+            name: '其他常见网段',
+            ip: '10.0.0.100',
+            subnet: '10.0.0.0/24',
+            is_default: false
+          }
+        ]
+        setNetworkInterfaces(commonNetworks)
+        // 默认选中第一个网络
+        setSelectedNetworks(new Set([commonNetworks[0].subnet]))
       }
     } catch (error) {
       console.error('Failed to load network interfaces:', error)
@@ -269,7 +320,14 @@ export default function CameraManagementPage() {
       enabled: true,
       hardware_acceleration: 'auto',
       detector: 'default',
-      detection_objects: ['person', 'car']
+      detection_objects: ['person', 'car'],
+      record_enabled: true,
+      record_retain_days: 7,
+      record_mode: 'motion',
+      alerts_retain_days: 30,
+      alerts_retain_mode: 'all',
+      detections_retain_days: 10,
+      detections_retain_mode: 'active_objects'
     })
     setSelectedCamera(null)
     setIsEditing(true)
@@ -717,6 +775,123 @@ export default function CameraManagementPage() {
                       </label>
                     ))}
                   </div>
+                </div>
+
+                {/* 录像配置 */}
+                <div className="border-t border-gray-200 pt-4">
+                  <h4 className="text-md font-semibold text-gray-900 mb-3">录像配置</h4>
+
+                  {/* 启用录像 */}
+                  <div className="mb-4">
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={editForm.record_enabled !== false}
+                        onChange={(e) => setEditForm({ ...editForm, record_enabled: e.target.checked })}
+                        className="rounded"
+                      />
+                      <span className="text-sm font-medium text-gray-700">启用录像</span>
+                    </label>
+                  </div>
+
+                  {editForm.record_enabled !== false && (
+                    <>
+                      {/* 常规录像保留 */}
+                      <div className="mb-4 bg-gray-50 p-3 rounded-lg">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          常规录像保留
+                        </label>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-xs text-gray-600 mb-1">保留天数</label>
+                            <input
+                              type="number"
+                              min="1"
+                              value={editForm.record_retain_days || 7}
+                              onChange={(e) => setEditForm({ ...editForm, record_retain_days: parseInt(e.target.value) })}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs text-gray-600 mb-1">录像模式</label>
+                            <select
+                              value={editForm.record_mode || 'motion'}
+                              onChange={(e) => setEditForm({ ...editForm, record_mode: e.target.value as any })}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
+                            >
+                              <option value="all">全天候</option>
+                              <option value="motion">运动检测</option>
+                              <option value="active_objects">活动对象</option>
+                            </select>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* 告警录像保留 */}
+                      <div className="mb-4 bg-yellow-50 p-3 rounded-lg">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          告警录像保留
+                        </label>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-xs text-gray-600 mb-1">保留天数</label>
+                            <input
+                              type="number"
+                              min="1"
+                              value={editForm.alerts_retain_days || 30}
+                              onChange={(e) => setEditForm({ ...editForm, alerts_retain_days: parseInt(e.target.value) })}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs text-gray-600 mb-1">录像模式</label>
+                            <select
+                              value={editForm.alerts_retain_mode || 'all'}
+                              onChange={(e) => setEditForm({ ...editForm, alerts_retain_mode: e.target.value as any })}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
+                            >
+                              <option value="all">全天候</option>
+                              <option value="motion">运动检测</option>
+                              <option value="active_objects">活动对象</option>
+                            </select>
+                          </div>
+                        </div>
+                        <p className="text-xs text-gray-500 mt-2">告警录像：包含警报事件的录像片段</p>
+                      </div>
+
+                      {/* 检测录像保留 */}
+                      <div className="mb-4 bg-green-50 p-3 rounded-lg">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          检测录像保留
+                        </label>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-xs text-gray-600 mb-1">保留天数</label>
+                            <input
+                              type="number"
+                              min="1"
+                              value={editForm.detections_retain_days || 10}
+                              onChange={(e) => setEditForm({ ...editForm, detections_retain_days: parseInt(e.target.value) })}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs text-gray-600 mb-1">录像模式</label>
+                            <select
+                              value={editForm.detections_retain_mode || 'active_objects'}
+                              onChange={(e) => setEditForm({ ...editForm, detections_retain_mode: e.target.value as any })}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
+                            >
+                              <option value="all">全天候</option>
+                              <option value="motion">运动检测</option>
+                              <option value="active_objects">活动对象</option>
+                            </select>
+                          </div>
+                        </div>
+                        <p className="text-xs text-gray-500 mt-2">检测录像：包含物体检测事件的录像片段</p>
+                      </div>
+                    </>
+                  )}
                 </div>
 
                 {/* 启用状态 */}
