@@ -2,8 +2,16 @@
 
 use crate::error::AppError;
 use crate::network::{
-    get_local_ip, guess_network_range, scan_network, DiscoveredCamera, ScanConfig,
+    get_all_network_interfaces, get_local_ip, guess_network_range, scan_network,
+    DiscoveredCamera, NetworkInterface, ScanConfig,
 };
+use serde::{Deserialize, Serialize};
+
+/// 获取所有网络接口信息
+#[tauri::command]
+pub async fn get_network_interfaces() -> Result<Vec<NetworkInterface>, AppError> {
+    Ok(get_all_network_interfaces())
+}
 
 /// Get local network IP
 #[tauri::command]

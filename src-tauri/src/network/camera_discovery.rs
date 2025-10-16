@@ -7,6 +7,19 @@ use std::time::Duration;
 use tokio::net::TcpStream as TokioTcpStream;
 use tokio::time::timeout;
 
+/// 网络接口信息
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NetworkInterface {
+    /// 接口名称
+    pub name: String,
+    /// IP 地址
+    pub ip: String,
+    /// 子网掩码
+    pub subnet: String,
+    /// 是否为默认接口
+    pub is_default: bool,
+}
+
 /// Discovered camera device
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DiscoveredCamera {
@@ -244,6 +257,81 @@ pub async fn scan_network(config: ScanConfig) -> Result<Vec<DiscoveredCamera>, S
     }
 
     Ok(cameras)
+}
+
+/// 获取所有物理网络接口
+pub fn get_all_network_interfaces() -> Vec<NetworkInterface> {
+    use if_addrs::{get_if_addrs, IfAddr};
+
+    let mut interfaces = Vec::new();
+    let mut default_ip = None;
+
+    // 先获取默认 IP
+    if let Some(ip) = get_local_ip() {
+        default_ip = Some(ip);
+    }
+
+    // 获取所有网络接口
+    if let Ok(ifaces) = get_if_addrs() {
+        for iface in ifaces {
+            // 跳过回环接口
+            if iface.is_loopback() {
+                continue;
+            }
+
+            // 跳过虚拟接口
+            let name = iface.name.to_lowercase();
+            if name.contains("docker")
+                || name.contains("vbox")
+                || name.contains("vmware")
+                || name.contains("veth")
+                || name.contains("virbr")
+                || name.contains("tun")
+                || name.contains("tap")
+            {
+                continue;
+            }
+
+            // 只处理 IPv4 地址
+            if let IfAddr::V4(v4_addr) = iface.addr {
+                let ip = v4_addr.ip;
+                let octets = ip.octets();
+
+                // 只处理私有 IP 地址
+                let is_private = match octets[0] {
+                    192 if octets[1] == 168 => true,
+                    10 => true,
+                    172 if (16..=31).contains(&octets[1]) => true,
+                    _ => false,
+                };
+
+                if is_private {
+                    let ip_str = ip.to_string();
+                    let subnet = format!("{}.{}.{}.0/24", octets[0], octets[1], octets[2]);
+                    let is_default = default_ip.as_ref() == Some(&ip_str);
+
+                    interfaces.push(NetworkInterface {
+                        name: iface.name.clone(),
+                        ip: ip_str,
+                        subnet,
+                        is_default,
+                    });
+                }
+            }
+        }
+    }
+
+    // 如果没有找到任何接口，添加一个默认的
+    if interfaces.is_empty() {
+        interfaces.push(NetworkInterface {
+            name: "default".to_string(),
+            ip: "192.168.1.100".to_string(),
+            subnet: "192.168.1.0/24".to_string(),
+            is_default: true,
+        });
+    }
+
+    interfaces
 }
 
 /// Get local network interface IP (excluding virtual interfaces)

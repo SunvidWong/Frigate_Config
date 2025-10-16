@@ -3,6 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import { Camera, Wifi, Play, RefreshCw, AlertCircle, Check, ExternalLink } from 'lucide-react';
 import { safeInvoke, isTauriEnvironment } from '../utils/tauri';
 
+interface NetworkInterface {
+  name: string;
+  ip: string;
+  subnet: string;
+  is_default: boolean;
+}
+
 interface DiscoveredCamera {
   ip: string;
   ports: number[];
@@ -19,6 +26,11 @@ interface CameraBrand {
   paths: string[];
   defaultPort: number;
 }
+
+// localStorage keys for persistence
+const SCAN_RESULTS_KEY = 'camera_scan_results';
+const SCAN_TIMESTAMP_KEY = 'camera_scan_timestamp';
+const SCAN_NETWORK_KEY = 'camera_scan_network';
 
 const CAMERA_BRANDS: CameraBrand[] = [
   {
@@ -102,20 +114,93 @@ const CameraDiscoveryPage: React.FC = () => {
   const [selectedBrand, setSelectedBrand] = useState<{ [key: string]: number }>({});
   const [customPath, setCustomPath] = useState<{ [key: string]: string }>({});
   const [isTauri, setIsTauri] = useState(false);
+  const [networkInterfaces, setNetworkInterfaces] = useState<NetworkInterface[]>([]);
+  const [selectedInterface, setSelectedInterface] = useState<NetworkInterface | null>(null);
+  const [lastScanTime, setLastScanTime] = useState<Date | null>(null);
+
+  // 保存扫描结果到 localStorage
+  const saveScanResults = (results: DiscoveredCamera[]) => {
+    const timestamp = new Date();
+    localStorage.setItem(SCAN_RESULTS_KEY, JSON.stringify(results));
+    localStorage.setItem(SCAN_TIMESTAMP_KEY, timestamp.toISOString());
+    localStorage.setItem(SCAN_NETWORK_KEY, networkRange);
+    setLastScanTime(timestamp);
+  };
+
+  // 从 localStorage 加载扫描结果
+  const loadScanResults = () => {
+    const savedResults = localStorage.getItem(SCAN_RESULTS_KEY);
+    const savedTimestamp = localStorage.getItem(SCAN_TIMESTAMP_KEY);
+    const savedNetwork = localStorage.getItem(SCAN_NETWORK_KEY);
+
+    if (savedResults && savedTimestamp) {
+      const results = JSON.parse(savedResults) as DiscoveredCamera[];
+      const timestamp = new Date(savedTimestamp);
+
+      // 只加载24小时内的结果
+      const hoursSinceLastScan = (Date.now() - timestamp.getTime()) / (1000 * 60 * 60);
+      if (hoursSinceLastScan < 24) {
+        setCameras(results);
+        setLastScanTime(timestamp);
+        if (savedNetwork) {
+          setNetworkRange(savedNetwork);
+        }
+        return true;
+      }
+    }
+    return false;
+  };
+
+  // 清除扫描结果
+  const clearScanResults = () => {
+    if (window.confirm('确定要清除所有扫描结果吗？')) {
+      localStorage.removeItem(SCAN_RESULTS_KEY);
+      localStorage.removeItem(SCAN_TIMESTAMP_KEY);
+      localStorage.removeItem(SCAN_NETWORK_KEY);
+      setCameras([]);
+      setLastScanTime(null);
+      setError(null);
+    }
+  };
 
   // Check Tauri environment on mount
   useEffect(() => {
     setIsTauri(isTauriEnvironment());
   }, []);
 
-  // Load local network IP on mount
+  // Load network interfaces and saved results on mount
   useEffect(() => {
     if (isTauri) {
-      loadNetworkRange();
+      loadNetworkInterfaces();
     } else {
       setNetworkRange('192.168.1.0/24');
     }
+
+    // 尝试加载之前的扫描结果
+    loadScanResults();
   }, [isTauri]);
+
+  // 获取所有网络接口
+  const loadNetworkInterfaces = async () => {
+    try {
+      const interfaces = await safeInvoke<NetworkInterface[]>('get_network_interfaces');
+      setNetworkInterfaces(interfaces);
+
+      // 自动选择默认接口
+      const defaultInterface = interfaces.find(i => i.is_default);
+      if (defaultInterface) {
+        setSelectedInterface(defaultInterface);
+        setNetworkRange(defaultInterface.subnet);
+      } else if (interfaces.length > 0) {
+        setSelectedInterface(interfaces[0]);
+        setNetworkRange(interfaces[0].subnet);
+      }
+    } catch (err) {
+      console.error('Failed to get network interfaces:', err);
+      // 回退到旧的方式
+      loadNetworkRange();
+    }
+  };
 
   const loadNetworkRange = async () => {
     try {
@@ -124,6 +209,15 @@ const CameraDiscoveryPage: React.FC = () => {
     } catch (err) {
       console.error('Failed to guess network range:', err);
       setNetworkRange('192.168.1.0/24');
+    }
+  };
+
+  // 切换网络接口时更新网络范围
+  const handleInterfaceChange = (interfaceName: string) => {
+    const selected = networkInterfaces.find(i => i.name === interfaceName);
+    if (selected) {
+      setSelectedInterface(selected);
+      setNetworkRange(selected.subnet);
     }
   };
 
@@ -155,6 +249,11 @@ const CameraDiscoveryPage: React.FC = () => {
       clearInterval(progressInterval);
       setScanProgress(100);
       setCameras(discovered);
+
+      // 保存扫描结果
+      if (discovered.length > 0) {
+        saveScanResults(discovered);
+      }
 
       if (discovered.length === 0) {
         setError('未发现摄像头。请检查网络连接或尝试自定义扫描。');
@@ -188,6 +287,11 @@ const CameraDiscoveryPage: React.FC = () => {
       clearInterval(progressInterval);
       setScanProgress(100);
       setCameras(discovered);
+
+      // 保存扫描结果
+      if (discovered.length > 0) {
+        saveScanResults(discovered);
+      }
 
       if (discovered.length === 0) {
         setError('未发现摄像头。请检查网络范围和端口设置。');
@@ -295,9 +399,47 @@ const CameraDiscoveryPage: React.FC = () => {
 
         {/* Scan Configuration */}
         <div className="px-6 py-4 bg-gray-50">
-          <h3 className="text-lg font-medium text-gray-900 mb-4">扫描配置</h3>
-          
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-medium text-gray-900">扫描配置</h3>
+            {lastScanTime && (
+              <div className="flex items-center gap-4">
+                <span className="text-sm text-gray-500">
+                  上次扫描: {new Date(lastScanTime).toLocaleString('zh-CN')}
+                </span>
+                <button
+                  onClick={clearScanResults}
+                  className="inline-flex items-center px-3 py-1 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                >
+                  清除结果
+                </button>
+              </div>
+            )}
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Network Interface Selector (for Tauri) */}
+            {isTauri && networkInterfaces.length > 0 && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  网络接口
+                </label>
+                <select
+                  value={selectedInterface?.name || ''}
+                  onChange={(e) => handleInterfaceChange(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                >
+                  {networkInterfaces.map((iface) => (
+                    <option key={iface.name} value={iface.name}>
+                      {iface.name} - {iface.ip} {iface.is_default && '(默认)'}
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-1 text-xs text-gray-500">
+                  选择要扫描的网络接口
+                </p>
+              </div>
+            )}
+
             {/* Network Range */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -559,6 +701,8 @@ const CameraDiscoveryPage: React.FC = () => {
         <ul className="text-sm text-blue-800 space-y-1 list-disc list-inside">
           <li>快速扫描会自动检测您的网络并扫描常用端口 (554, 80, 8000, 8080)</li>
           <li>自定义扫描允许您指定网络范围和端口列表</li>
+          <li>扫描结果会自动保存，页面刷新后仍然保留（24小时内有效）</li>
+          <li>可以选择不同的网络接口进行扫描（如有多个网卡）</li>
           <li>扫描可能需要 1-2 分钟,具体取决于网络大小</li>
           <li>确保摄像头和本机在同一网络内</li>
           <li>某些摄像头可能需要登录才能访问 RTSP 流</li>

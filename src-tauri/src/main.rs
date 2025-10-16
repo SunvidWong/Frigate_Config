@@ -106,6 +106,7 @@ fn run_tauri_mode() {
             commands::disk::get_default_volume_paths,
             commands::disk::get_recommended_paths,
             // Camera discovery commands (Phase 8.5 - Camera Scanner)
+            commands::camera::get_network_interfaces,
             commands::camera::get_local_network_ip,
             commands::camera::guess_network_range_command,
             commands::camera::scan_for_cameras,
