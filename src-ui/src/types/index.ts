@@ -20,6 +20,8 @@ export interface HardwareDevice {
   available: boolean
   in_use: boolean
   error?: string
+  hwaccel?: string
+  detector?: string
 }
 
 export interface DetectionResult {

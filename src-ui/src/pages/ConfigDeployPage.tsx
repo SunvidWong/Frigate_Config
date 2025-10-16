@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { invoke } from '@tauri-apps/api/tauri'
 import { HardwareDevice } from '../types'
-import { DockerComposeGenerator, DockerComposeConfig } from '../services/dockerComposeGenerator'
+import { DockerComposeGenerator } from '../services/dockerComposeGenerator'
 
 interface PCIDevice {
   vendor_id: string
@@ -51,10 +51,8 @@ export default function ConfigDeployPage() {
   // 硬件状态
   const [availableDevices, setAvailableDevices] = useState<HardwareDevice[]>([])
   const [selectedDevices, setSelectedDevices] = useState<HardwareDevice[]>([])
-  const [pciDevices, setPciDevices] = useState<PCIDevice[]>([])
   const [isScanning, setIsScanning] = useState(false)
   const [showManualAddModal, setShowManualAddModal] = useState(false)
-  const [manualDeviceType, setManualDeviceType] = useState<string>('')
 
   // 配置状态
   const [volumePaths, setVolumePaths] = useState({
@@ -70,7 +68,6 @@ export default function ConfigDeployPage() {
 
   // 部署状态
   const [isDeploying, setIsDeploying] = useState(false)
-  const [deploymentStatus, setDeploymentStatus] = useState<string>('')
   const [deploymentLogs, setDeploymentLogs] = useState<string[]>([])
 
   // 初始化加载
@@ -112,7 +109,6 @@ export default function ConfigDeployPage() {
     setIsScanning(true)
     try {
       const devices = await invoke<PCIDevice[]>('scan_pci_devices')
-      setPciDevices(devices)
 
       // 自动转换为 HardwareDevice
       const hardwareDevices: HardwareDevice[] = devices.map((pci, index) => ({
@@ -282,8 +278,7 @@ export default function ConfigDeployPage() {
     }
 
     setIsDeploying(true)
-    setDeploymentStatus('部署中...')
-    setDeploymentLogs([])
+    setDeploymentLogs(['正在部署...'])
 
     try {
       // 先保存 docker-compose 内容到文件
@@ -301,7 +296,6 @@ export default function ConfigDeployPage() {
       })
 
       if (result.success) {
-        setDeploymentStatus('部署成功！')
         setDeploymentLogs(prev => [
           ...prev,
           '✓ Frigate 容器已启动',
@@ -313,18 +307,16 @@ export default function ConfigDeployPage() {
           setDeploymentLogs(prev => [
             ...prev,
             '⚠️ 警告:',
-            ...result.warnings
+            ...(result.warnings || [])
           ])
         }
 
         // 等待几秒后进行健康检查
         setTimeout(() => checkHealth(), 5000)
       } else {
-        setDeploymentStatus('部署失败')
-        setDeploymentLogs(prev => [...prev, `✗ ${result.message}`])
+        setDeploymentLogs(prev => [...prev, `✗ 部署失败: ${result.message}`])
       }
     } catch (error) {
-      setDeploymentStatus('部署失败')
       setDeploymentLogs(prev => [...prev, `✗ 错误: ${String(error)}`])
     } finally {
       setIsDeploying(false)

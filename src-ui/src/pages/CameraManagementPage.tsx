@@ -59,7 +59,6 @@ export default function CameraManagementPage() {
   const [selectedBrand, setSelectedBrand] = useState('hikvision')
   const [isScanning, setIsScanning] = useState(false)
   const [scanResults, setScanResults] = useState<ScanResult[]>([])
-  const [scanProgress, setScanProgress] = useState(0)
 
   // 右侧：摄像头列表
   const [cameras, setCameras] = useState<Camera[]>([])
@@ -113,7 +112,6 @@ export default function CameraManagementPage() {
   const scanForCameras = async () => {
     setIsScanning(true)
     setScanResults([])
-    setScanProgress(0)
 
     try {
       const results = await invoke<ScanResult[]>('scan_for_cameras', {
@@ -153,7 +151,8 @@ export default function CameraManagementPage() {
       enabled: true,
       hardware_acceleration: 'auto',
       detector: 'default',
-      detection_objects: ['person', 'car']
+      detection_objects: ['person', 'car'],
+      zones: []
     }
 
     saveCameras([...cameras, newCamera])
@@ -190,9 +189,13 @@ export default function CameraManagementPage() {
       saveCameras(updated)
     } else {
       // 创建新摄像头
+      const { id: _, ...formData } = editForm as Camera
       const newCamera: Camera = {
         id: `camera-${Date.now()}`,
-        ...editForm as Camera
+        ...formData,
+        name: editForm.name || '新摄像头',
+        rtsp_url: editForm.rtsp_url || '',
+        enabled: editForm.enabled !== false
       }
       saveCameras([...cameras, newCamera])
     }
