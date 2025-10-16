@@ -279,7 +279,7 @@ services:
           '/dev/hailo1:/dev/hailo1',  // 支持多个 Hailo 设备
           '/dev/hailo2:/dev/hailo2',
           '/dev/hailo3:/dev/hailo3'
-        ].filter(device => {
+        ].filter(() => {
           // 实际部署时会检查哪些设备存在
           return true;
         });
