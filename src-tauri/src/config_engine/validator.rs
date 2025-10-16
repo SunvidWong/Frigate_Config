@@ -718,3 +718,186 @@ impl Default for ConfigValidator {
         Self::new()
     }
 }
+
+/// 便捷函数：直接验证 Frigate 配置（同步版本，避免 Send trait 问题）
+pub fn validate_frigate_config(config: &FrigateConfig) -> Result<ValidationResult, AppError> {
+    info!("开始配置验证");
+
+    let mut errors = Vec::new();
+    let mut warnings = Vec::new();
+    let mut suggestions = Vec::new();
+
+    // 检查必需的部分
+    if config.cameras.is_empty() {
+        errors.push(ValidationError {
+            code: "NO_CAMERAS".to_string(),
+            message: "配置中必须包含至少一个摄像头".to_string(),
+            field: Some("cameras".to_string()),
+            severity: ValidationSeverity::Error,
+            line_number: None,
+            suggestion: Some("添加至少一个摄像头配置".to_string()),
+        });
+    }
+
+    // 检查检测器配置
+    if !config.cameras.is_empty() && config.detectors.is_empty() {
+        warnings.push(ValidationWarning {
+            code: "NO_DETECTORS".to_string(),
+            message: "已配置摄像头但没有定义检测器".to_string(),
+            field: Some("detectors".to_string()),
+            line_number: None,
+            recommendation: Some("添加检测器配置（如 Coral、CPU 或 GPU）".to_string()),
+        });
+    }
+
+    // 验证每个摄像头
+    for (camera_name, camera) in &config.cameras {
+        // 检查 ffmpeg 输入
+        if camera.ffmpeg_inputs.is_empty() {
+            errors.push(ValidationError {
+                code: "NO_FFMPEG_INPUTS".to_string(),
+                message: format!("摄像头 '{}' 没有配置 ffmpeg 输入", camera_name),
+                field: Some(format!("cameras.{}.ffmpeg.inputs", camera_name)),
+                severity: ValidationSeverity::Error,
+                line_number: None,
+                suggestion: Some("添加至少一个 ffmpeg 输入路径（RTSP URL）".to_string()),
+            });
+        }
+
+        // 检查输入路径
+        for input in &camera.ffmpeg_inputs {
+            if input.path.is_empty() {
+                errors.push(ValidationError {
+                    code: "EMPTY_INPUT_PATH".to_string(),
+                    message: format!("摄像头 '{}' 的输入路径为空", camera_name),
+                    field: Some(format!("cameras.{}.ffmpeg.inputs.path", camera_name)),
+                    severity: ValidationSeverity::Error,
+                    line_number: None,
+                    suggestion: Some("提供有效的 RTSP 或文件路径".to_string()),
+                });
+            }
+
+            // 检查 RTSP 路径格式
+            if input.path.starts_with("rtsp://") && !input.path.contains('@') {
+                warnings.push(ValidationWarning {
+                    code: "RTSP_NO_AUTH".to_string(),
+                    message: format!("摄像头 '{}' 的 RTSP 路径可能缺少认证信息", camera_name),
+                    field: Some(format!("cameras.{}.ffmpeg.inputs.path", camera_name)),
+                    line_number: None,
+                    recommendation: Some(
+                        "RTSP URL 格式：rtsp://[用户名:密码@]主机[:端口]/路径".to_string()
+                    ),
+                });
+            }
+        }
+
+        // 检查检测设置
+        if let Some(detect_fps) = camera.detect.fps {
+            if !(1.0..=60.0).contains(&detect_fps) {
+                warnings.push(ValidationWarning {
+                    code: "INVALID_FPS".to_string(),
+                    message: format!(
+                        "摄像头 '{}' 的 FPS 值不合理：{}",
+                        camera_name, detect_fps
+                    ),
+                    field: Some(format!("cameras.{}.detect.fps", camera_name)),
+                    line_number: None,
+                    recommendation: Some(
+                        "FPS 应在 1 到 60 之间以获得最佳性能".to_string()
+                    ),
+                });
+            } else if detect_fps > 30.0 {
+                warnings.push(ValidationWarning {
+                    code: "HIGH_FPS".to_string(),
+                    message: format!(
+                        "摄像头 '{}' 的 FPS 较高 ({})，可能影响性能",
+                        camera_name, detect_fps
+                    ),
+                    field: Some(format!("cameras.{}.detect.fps", camera_name)),
+                    line_number: None,
+                    recommendation: Some(
+                        "考虑将 FPS 降低到 15-30 以获得最佳性能".to_string()
+                    ),
+                });
+            }
+        }
+
+        // 检查录制配置
+        if camera.record.is_none() {
+            warnings.push(ValidationWarning {
+                code: "NO_RECORDING".to_string(),
+                message: format!("摄像头 '{}' 没有配置录制功能", camera_name),
+                field: Some(format!("cameras.{}.record", camera_name)),
+                line_number: None,
+                recommendation: Some("考虑启用录制功能以保存监控视频".to_string()),
+            });
+        }
+    }
+
+    // 验证检测器配置
+    for (detector_name, detector) in &config.detectors {
+        // 验证检测器模型
+        if detector.model.is_empty() {
+            errors.push(ValidationError {
+                code: "NO_DETECTOR_TYPE".to_string(),
+                message: format!("检测器 '{}' 没有指定模型", detector_name),
+                field: Some(format!("detectors.{}.model", detector_name)),
+                severity: ValidationSeverity::Error,
+                line_number: None,
+                suggestion: Some("指定检测器模型（如 edgetpu、cpu、gpu）".to_string()),
+            });
+        }
+
+        // 验证硬件检测器的设备路径
+        if detector.model != "cpu" && detector.device.is_none() {
+            warnings.push(ValidationWarning {
+                code: "NO_DEVICE_PATH".to_string(),
+                message: format!("硬件检测器 '{}' 没有指定设备", detector_name),
+                field: Some(format!("detectors.{}.device", detector_name)),
+                line_number: None,
+                recommendation: Some("为硬件检测器指定设备路径".to_string()),
+            });
+        }
+    }
+
+    // 添加性能优化建议
+    if config.cameras.len() > 4 {
+        suggestions.push(ConfigurationSuggestion {
+            title: "摄像头数量较多".to_string(),
+            description: format!("配置了 {} 个摄像头，可能需要优化性能设置", config.cameras.len()),
+            category: SuggestionCategory::Performance,
+            impact: ImpactLevel::Medium,
+            changes: vec![ConfigChange {
+                path: "detect.fps".to_string(),
+                old_value: None,
+                new_value: serde_json::json!(5),
+                reason: "降低检测 FPS 以减少 CPU 使用".to_string(),
+            }],
+        });
+    }
+
+    // 简化的硬件兼容性（没有实际硬件检测）
+    let hardware_compatibility = HardwareCompatibility {
+        gpu_compatibility: vec![],
+        detector_compatibility: vec![],
+        overall_score: if errors.is_empty() { 100.0 } else { 50.0 },
+        bottlenecks: vec![],
+        recommendations: if !errors.is_empty() {
+            vec!["请修复所有错误以确保配置正常工作".to_string()]
+        } else {
+            vec![]
+        },
+    };
+
+    let is_valid = errors.iter().all(|e| {
+        !matches!(e.severity, ValidationSeverity::Error)
+    });
+
+    Ok(ValidationResult {
+        is_valid,
+        errors,
+        warnings,
+        suggestions,
+        hardware_compatibility,
+    })
+}

@@ -1,0 +1,11 @@
+# 测试无效配置 - 缺少必要字段
+cameras:
+  test_camera:
+    enabled: true
+    # 缺少 ffmpeg 输入配置
+
+detectors:
+  # 空的检测器配置
+
+mqtt:
+  enabled: false

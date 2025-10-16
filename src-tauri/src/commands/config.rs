@@ -470,29 +470,87 @@ pub async fn validate_config(
 ) -> Result<ValidationResponse, AppError> {
     info!("Validating configuration: {}", file_path);
 
+    // 首先解析配置
     let parser = ConfigParser::new();
     let parse_result = parser.parse_content(content, file_path)?;
 
+    // 如果解析失败，直接返回解析错误
+    if !parse_result.errors.is_empty() {
+        return Ok(ValidationResponse {
+            valid: false,
+            errors: parse_result
+                .errors
+                .into_iter()
+                .map(|e| ValidationError {
+                    message: e.message,
+                    line_number: e.line_number,
+                    error_type: format!("{:?}", e.error_type),
+                })
+                .collect(),
+            warnings: parse_result
+                .warnings
+                .into_iter()
+                .map(|w| ValidationWarning {
+                    message: w.message,
+                    line_number: w.line_number,
+                    suggestion: w.suggestion,
+                })
+                .collect(),
+            cameras_count: parse_result.config.cameras.len(),
+            detectors_count: parse_result.config.detectors.len(),
+        });
+    }
+
+    // 使用 ConfigValidator 进行深度验证（同步验证以避免 Send 问题）
+    use crate::config_engine::validator::{validate_frigate_config, ValidationResult};
+    let validation_result = validate_frigate_config(&parse_result.config)?;
+
+    // 合并解析警告和验证结果
+    let mut all_errors = Vec::new();
+    let mut all_warnings = Vec::new();
+
+    // 添加验证错误
+    for error in validation_result.errors {
+        all_errors.push(ValidationError {
+            message: error.message,
+            line_number: error.line_number,
+            error_type: error.code,
+        });
+    }
+
+    // 添加解析警告
+    for warning in parse_result.warnings {
+        all_warnings.push(ValidationWarning {
+            message: warning.message,
+            line_number: warning.line_number,
+            suggestion: warning.suggestion,
+        });
+    }
+
+    // 添加验证警告
+    for warning in validation_result.warnings {
+        all_warnings.push(ValidationWarning {
+            message: warning.message,
+            line_number: warning.line_number,
+            suggestion: warning.recommendation,
+        });
+    }
+
+    // 添加建议作为警告（用户友好）
+    for suggestion in validation_result.suggestions {
+        all_warnings.push(ValidationWarning {
+            message: format!("{}: {}", suggestion.title, suggestion.description),
+            line_number: None,
+            suggestion: Some(suggestion.changes.first()
+                .map(|c| c.reason.clone())
+                .unwrap_or_else(|| "查看详细建议".to_string())),
+        });
+    }
+
     Ok(ValidationResponse {
-        valid: parse_result.errors.is_empty(),
-        errors: parse_result
-            .errors
-            .into_iter()
-            .map(|e| ValidationError {
-                message: e.message,
-                line_number: e.line_number,
-                error_type: format!("{:?}", e.error_type),
-            })
-            .collect(),
-        warnings: parse_result
-            .warnings
-            .into_iter()
-            .map(|w| ValidationWarning {
-                message: w.message,
-                line_number: w.line_number,
-                suggestion: w.suggestion,
-            })
-            .collect(),
+        valid: validation_result.is_valid && all_errors.is_empty(),
+        errors: all_errors,
+        warnings: all_warnings,
         cameras_count: parse_result.config.cameras.len(),
         detectors_count: parse_result.config.detectors.len(),
     })
