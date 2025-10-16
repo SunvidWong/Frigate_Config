@@ -53,9 +53,24 @@ interface ScanResult {
   rtsp_url?: string
 }
 
+interface NetworkInterface {
+  name: string
+  ip: string
+  subnet: string
+  is_default: boolean
+}
+
+interface CustomNetwork {
+  id: string
+  subnet: string
+}
+
 export default function CameraManagementPage() {
   // 左侧：发现摄像头
-  const [networkRange, setNetworkRange] = useState('192.168.1.0/24')
+  const [networkInterfaces, setNetworkInterfaces] = useState<NetworkInterface[]>([])
+  const [selectedNetworks, setSelectedNetworks] = useState<Set<string>>(new Set())
+  const [customNetworks, setCustomNetworks] = useState<CustomNetwork[]>([])
+  const [newCustomNetwork, setNewCustomNetwork] = useState('')
   const [selectedBrand, setSelectedBrand] = useState('hikvision')
   const [isScanning, setIsScanning] = useState(false)
   const [scanResults, setScanResults] = useState<ScanResult[]>([])
@@ -77,19 +92,47 @@ export default function CameraManagementPage() {
 
   useEffect(() => {
     loadCameras()
-    forceGuessNetworkRange()
+    loadNetworkInterfaces()
+    loadSavedCustomNetworks()
   }, [])
 
-  // 强制使用本地IP段
-  const forceGuessNetworkRange = async () => {
+  // 加载网络接口
+  const loadNetworkInterfaces = async () => {
     try {
-      const range = await invoke<string>('guess_network_range_command')
-      setNetworkRange(range)
+      const interfaces = await invoke<NetworkInterface[]>('get_network_interfaces')
+      setNetworkInterfaces(interfaces)
+
+      // 默认选中默认网卡
+      const defaultInterface = interfaces.find(i => i.is_default)
+      if (defaultInterface) {
+        setSelectedNetworks(new Set([defaultInterface.subnet]))
+      }
     } catch (error) {
-      console.error('Failed to guess network range:', error)
-      // 如果失败，尝试使用备用方法
-      setNetworkRange('192.168.1.0/24')
+      console.error('Failed to load network interfaces:', error)
+      // 添加一个默认网络作为后备
+      const fallback: NetworkInterface = {
+        name: 'default',
+        ip: '192.168.1.100',
+        subnet: '192.168.1.0/24',
+        is_default: true
+      }
+      setNetworkInterfaces([fallback])
+      setSelectedNetworks(new Set([fallback.subnet]))
     }
+  }
+
+  // 加载保存的自定义网络
+  const loadSavedCustomNetworks = () => {
+    const saved = localStorage.getItem('frigate_custom_networks')
+    if (saved) {
+      setCustomNetworks(JSON.parse(saved))
+    }
+  }
+
+  // 保存自定义网络
+  const saveCustomNetworks = (networks: CustomNetwork[]) => {
+    setCustomNetworks(networks)
+    localStorage.setItem('frigate_custom_networks', JSON.stringify(networks))
   }
 
   // 加载已配置的摄像头
@@ -108,16 +151,72 @@ export default function CameraManagementPage() {
   }
 
 
+  // 切换网络选择
+  const toggleNetworkSelection = (subnet: string) => {
+    const newSelection = new Set(selectedNetworks)
+    if (newSelection.has(subnet)) {
+      newSelection.delete(subnet)
+    } else {
+      newSelection.add(subnet)
+    }
+    setSelectedNetworks(newSelection)
+  }
+
+  // 添加自定义网络
+  const addCustomNetwork = () => {
+    if (!newCustomNetwork.trim()) {
+      alert('请输入有效的网络范围 (例如: 192.168.1.0/24)')
+      return
+    }
+
+    // 简单验证 CIDR 格式
+    if (!/^\d+\.\d+\.\d+\.\d+\/\d+$/.test(newCustomNetwork)) {
+      alert('网络范围格式不正确，请使用 CIDR 格式 (例如: 192.168.1.0/24)')
+      return
+    }
+
+    const newNetwork: CustomNetwork = {
+      id: `custom-${Date.now()}`,
+      subnet: newCustomNetwork
+    }
+
+    const updated = [...customNetworks, newNetwork]
+    saveCustomNetworks(updated)
+    setSelectedNetworks(new Set([...selectedNetworks, newNetwork.subnet]))
+    setNewCustomNetwork('')
+  }
+
+  // 删除自定义网络
+  const removeCustomNetwork = (id: string) => {
+    const networkToRemove = customNetworks.find(n => n.id === id)
+    if (networkToRemove) {
+      // 从选中列表中移除
+      const newSelection = new Set(selectedNetworks)
+      newSelection.delete(networkToRemove.subnet)
+      setSelectedNetworks(newSelection)
+    }
+
+    // 从列表中删除
+    const updated = customNetworks.filter(n => n.id !== id)
+    saveCustomNetworks(updated)
+  }
+
   // 扫描摄像头
   const scanForCameras = async () => {
+    if (selectedNetworks.size === 0) {
+      alert('请至少选择一个网络范围')
+      return
+    }
+
     setIsScanning(true)
     setScanResults([])
 
     try {
-      const results = await invoke<ScanResult[]>('scan_for_cameras', {
-        networkRange,
+      const networkRanges = Array.from(selectedNetworks)
+      const results = await invoke<any[]>('scan_multiple_networks', {
+        networkRanges,
         ports: [80, 554, 8000, 8554],
-        timeout: 2000
+        timeoutMs: 2000
       })
 
       // 为每个结果生成 RTSP URL
@@ -125,12 +224,16 @@ export default function CameraManagementPage() {
         const brand = CAMERA_BRANDS.find(b => b.value === selectedBrand)
         if (brand) {
           return {
-            ...result,
+            ip: result.ip,
+            ports: result.ports,
             brand: selectedBrand,
             rtsp_url: brand.rtspTemplate.replace('{ip}', result.ip)
           }
         }
-        return result
+        return {
+          ip: result.ip,
+          ports: result.ports
+        }
       })
 
       setScanResults(resultsWithRTSP)
@@ -247,29 +350,105 @@ export default function CameraManagementPage() {
           </div>
 
           <div className="p-6 border-b border-gray-200">
-            {/* 网络范围 */}
+            {/* 自动检测到的网络 */}
             <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                网络范围 (自动检测)
-              </label>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={networkRange}
-                  readOnly
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-700 cursor-not-allowed"
-                  placeholder="自动检测中..."
-                />
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-sm font-medium text-gray-700">
+                  自动检测到的网络
+                </label>
                 <button
-                  onClick={forceGuessNetworkRange}
-                  className="px-3 py-2 text-sm bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition"
+                  onClick={loadNetworkInterfaces}
+                  className="px-2 py-1 text-xs bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition"
                 >
                   刷新
                 </button>
               </div>
-              <p className="text-xs text-gray-500 mt-1">
-                自动检测本地网络IP段，点击"刷新"重新检测
-              </p>
+              {networkInterfaces.length === 0 ? (
+                <p className="text-sm text-gray-500">正在检测网络接口...</p>
+              ) : (
+                <div className="space-y-2">
+                  {networkInterfaces.map((iface) => (
+                    <label
+                      key={iface.name}
+                      className="flex items-center gap-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedNetworks.has(iface.subnet)}
+                        onChange={() => toggleNetworkSelection(iface.subnet)}
+                        className="rounded text-blue-500"
+                      />
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-sm text-gray-900">
+                            {iface.name}
+                          </span>
+                          {iface.is_default && (
+                            <span className="px-2 py-0.5 text-xs bg-blue-100 text-blue-700 rounded-full">
+                              默认
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-gray-600 mt-0.5">
+                          {iface.ip} → {iface.subnet}
+                        </p>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* 自定义网络 */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                手动添加 IP 段
+              </label>
+              <div className="flex gap-2 mb-2">
+                <input
+                  type="text"
+                  value={newCustomNetwork}
+                  onChange={(e) => setNewCustomNetwork(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && addCustomNetwork()}
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
+                  placeholder="例如: 192.168.2.0/24 或 10.0.0.0/24"
+                />
+                <button
+                  onClick={addCustomNetwork}
+                  className="px-3 py-2 text-sm bg-green-500 text-white rounded-lg hover:bg-green-600 transition"
+                >
+                  添加
+                </button>
+              </div>
+              {customNetworks.length > 0 && (
+                <div className="space-y-2">
+                  {customNetworks.map((network) => (
+                    <label
+                      key={network.id}
+                      className="flex items-center gap-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedNetworks.has(network.subnet)}
+                        onChange={() => toggleNetworkSelection(network.subnet)}
+                        className="rounded text-blue-500"
+                      />
+                      <span className="flex-1 text-sm text-gray-900 font-mono">
+                        {network.subnet}
+                      </span>
+                      <button
+                        onClick={(e) => {
+                          e.preventDefault()
+                          removeCustomNetwork(network.id)
+                        }}
+                        className="px-2 py-1 text-xs text-red-600 hover:bg-red-50 rounded"
+                      >
+                        删除
+                      </button>
+                    </label>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* 摄像头品牌 */}

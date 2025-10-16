@@ -42,6 +42,40 @@ pub async fn scan_for_cameras(
     scan_network(config).await.map_err(AppError::Network)
 }
 
+/// Scan multiple network ranges for cameras
+#[tauri::command]
+pub async fn scan_multiple_networks(
+    network_ranges: Vec<String>,
+    ports: Option<Vec<u16>>,
+    timeout_ms: Option<u64>,
+) -> Result<Vec<DiscoveredCamera>, AppError> {
+    let ports = ports.unwrap_or_else(|| vec![554, 80, 8000, 8080, 8554, 8888]);
+    let timeout = timeout_ms.unwrap_or(1000);
+
+    let mut all_cameras = Vec::new();
+
+    for range in network_ranges {
+        let config = ScanConfig {
+            network_range: range,
+            ports: ports.clone(),
+            timeout_ms: timeout,
+            concurrency: 50,
+        };
+
+        match scan_network(config).await {
+            Ok(mut cameras) => {
+                all_cameras.append(&mut cameras);
+            }
+            Err(e) => {
+                eprintln!("Failed to scan network: {}", e);
+                // Continue with other ranges even if one fails
+            }
+        }
+    }
+
+    Ok(all_cameras)
+}
+
 /// Quick scan with default settings
 #[tauri::command]
 pub async fn quick_scan_cameras() -> Result<Vec<DiscoveredCamera>, AppError> {

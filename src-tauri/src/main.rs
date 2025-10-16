@@ -111,6 +111,7 @@ fn run_tauri_mode() {
             commands::camera::get_local_network_ip,
             commands::camera::guess_network_range_command,
             commands::camera::scan_for_cameras,
+            commands::camera::scan_multiple_networks,
             commands::camera::quick_scan_cameras,
             // System status commands (Phase 4 - T034)
             commands::system::check_system_status,
