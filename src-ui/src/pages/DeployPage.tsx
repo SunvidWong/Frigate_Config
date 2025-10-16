@@ -8,7 +8,6 @@ import Card from '../components/Card'
 import ValidationResults from '../components/ValidationResults'
 import DeploymentProgress from '../components/DeploymentProgress'
 import HealthCheckStatus from '../components/HealthCheckStatus'
-import { ConfigFixer } from '../services/configFixer'
 import { DockerComposeGenerator } from '../services/dockerComposeGenerator'
 
 interface DeploymentConfig {
@@ -90,9 +89,7 @@ const DeployPage: React.FC = () => {
   const [healthStatus, setHealthStatus] = useState<HealthCheckResponse | null>(null)
   const [deploymentHistory, setDeploymentHistory] = useState<DeploymentHistoryItem[]>([])
   const [showCommandPreview, setShowCommandPreview] = useState(false)
-  const [showConfigPreview, setShowConfigPreview] = useState(false)
   const [showComposePreview, setShowComposePreview] = useState(false)
-  const [configYaml, setConfigYaml] = useState<string>('')
   const [composeYaml, setComposeYaml] = useState<string>('')
   const [isDeploying, setIsDeploying] = useState(false)
   const [deploymentStep, setDeploymentStep] = useState<'idle' | 'validating' | 'deploying' | 'health_check' | 'completed' | 'failed'>('idle')
@@ -137,17 +134,11 @@ const DeployPage: React.FC = () => {
     execute: validateDevices,
   } = useTauriCommand<DeviceValidationResponse>('validate_hardware_devices')
 
-  // Load deployment history and configs on mount
+  // Load deployment history on mount
   useEffect(() => {
     loadHistory()
 
-    // Load config.yml from localStorage
-    const savedConfig = localStorage.getItem('current_config')
-    if (savedConfig) {
-      setConfigYaml(savedConfig)
-    }
-
-    // Generate docker-compose.yml
+    // Generate docker-compose.yml preview
     const compose = DockerComposeGenerator.generateCompose({
       volumes: {
         config_path: './config',
@@ -284,32 +275,6 @@ const DeployPage: React.FC = () => {
     setCurrentDeployment(null)
   }
 
-  // Handle config quick fix
-  const handleConfigQuickFix = () => {
-    if (!configYaml) return
-    const { fixed, changes } = ConfigFixer.autoFix(configYaml)
-    setConfigYaml(fixed)
-    // Save fixed content
-    localStorage.setItem('current_config', fixed)
-    // Show changes in alert
-    if (changes.length > 0) {
-      alert(`自动修复完成:\n${changes.map((c, i) => `${i + 1}. ${c}`).join('\n')}`)
-    }
-  }
-
-  // Handle delete config
-  const handleDeleteConfig = () => {
-    const confirmed = confirm('确定要删除 config.yml 吗？此操作无法撤销。')
-    if (!confirmed) return
-
-    // Clear storage
-    localStorage.removeItem('current_config')
-    localStorage.removeItem('generated_config')
-
-    // Reset state
-    setConfigYaml('')
-    alert('config.yml 已删除')
-  }
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
@@ -481,13 +446,6 @@ const DeployPage: React.FC = () => {
               {showCommandPreview ? '隐藏' : '查看'}命令
             </Button>
             <Button
-              onClick={() => setShowConfigPreview(!showConfigPreview)}
-              variant="ghost"
-              icon="📄"
-            >
-              {showConfigPreview ? '隐藏' : '查看'}config.yml
-            </Button>
-            <Button
               onClick={() => setShowComposePreview(!showComposePreview)}
               variant="ghost"
               icon="🐳"
@@ -497,45 +455,6 @@ const DeployPage: React.FC = () => {
           </div>
         </div>
       </Card>
-
-      {/* config.yml Preview */}
-      {showConfigPreview && configYaml && (
-        <Card className="mb-6 bg-gray-50">
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="text-lg font-semibold">config.yml - Frigate 配置文件</h3>
-            <div className="flex items-center space-x-2">
-              <Button
-                onClick={handleConfigQuickFix}
-                variant="outline"
-                icon="🔧"
-                disabled={!configYaml}
-              >
-                一键修复
-              </Button>
-              <Button
-                onClick={handleDeleteConfig}
-                variant="outline"
-                icon="🗑️"
-                disabled={!configYaml}
-              >
-                删除配置
-              </Button>
-              <a
-                href="/config-editor"
-                className="text-sm text-blue-600 hover:text-blue-700 font-medium"
-              >
-                编辑配置 →
-              </a>
-            </div>
-          </div>
-          <pre className="bg-gray-900 text-gray-100 p-4 rounded-md overflow-x-auto text-sm font-mono max-h-96 overflow-y-auto">
-            {configYaml}
-          </pre>
-          <div className="mt-2 text-xs text-gray-600">
-            📄 说明: 此文件包含 Frigate 的摄像头、检测器和录制配置。
-          </div>
-        </Card>
-      )}
 
       {/* docker-compose.yml Preview */}
       {showComposePreview && composeYaml && (
