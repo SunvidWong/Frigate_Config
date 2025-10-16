@@ -97,7 +97,7 @@ const DeployPage: React.FC = () => {
   const [showDeviceWarnings, setShowDeviceWarnings] = useState(false)
   // Phase 3 - 添加实时状态更新相关状态
   const [deploymentLogs, setDeploymentLogs] = useState<string[]>([])
-  const [statusPollingInterval, setStatusPollingInterval] = useState<NodeJS.Timer | null>(null)
+  const [statusPollingInterval, setStatusPollingInterval] = useState<ReturnType<typeof setInterval> | null>(null)
 
   // Tauri commands
   const {
@@ -152,7 +152,6 @@ const DeployPage: React.FC = () => {
 
   // Phase 3 - 添加获取部署状态的命令
   const {
-    data: statusData,
     execute: fetchStatus,
   } = useTauriCommand<{ status: string; container_id: string | null }>('get_deployment_status_cmd')
 
