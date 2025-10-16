@@ -245,7 +245,7 @@ npm run test:e2e     # 终端2
 ### 启动开发服务器
 ```bash
 npm run dev
-# 访问 http://localhost:1420
+# 访问 http://localhost:15000
 # 导航到 Manual Config 页面测试功能
 ```
 

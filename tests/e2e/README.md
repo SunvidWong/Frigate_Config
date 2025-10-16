@@ -67,7 +67,7 @@ npm run test:e2e:ui
 测试配置位于项目根目录的 `playwright.config.ts`：
 
 - **测试超时**: 30秒
-- **基础URL**: http://localhost:1420 (Tauri默认端口)
+- **基础URL**: http://localhost:15000 (Tauri默认端口)
 - **浏览器**: Chromium
 - **失败时截图**: 启用
 - **失败时录制视频**: 启用
@@ -95,7 +95,7 @@ import { test, expect } from '@playwright/test';
 test.describe('功能名称', () => {
   test.beforeEach(async ({ page }) => {
     // 导航到应用
-    await page.goto('http://localhost:1420');
+    await page.goto('http://localhost:15000');
     await page.waitForLoadState('networkidle');
   });
 
@@ -123,7 +123,7 @@ test.describe('功能名称', () => {
 
 如果测试超时，检查：
 - Tauri应用是否正常启动
-- 端口1420是否被占用
+- 端口15000是否被占用
 - 增加`playwright.config.ts`中的timeout值
 
 ### 元素找不到

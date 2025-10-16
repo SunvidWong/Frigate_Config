@@ -232,7 +232,7 @@ npm run test:e2e
 1. **E2E Tests**: Require Playwright setup to run
    - Config exists: `playwright.config.ts`
    - Command available: `npm run test:e2e`
-   - Need: Dev server running on port 1420
+   - Need: Dev server running on port 15000
 
 2. **State Persistence**: Volume mappings not yet saved
    - Currently: Session-only storage

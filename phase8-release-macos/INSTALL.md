@@ -128,7 +128,7 @@ xattr -cr frigate-config-tool
 ### 问题 3: 浏览器未自动打开
 **解决**:
 - 查看终端输出
-- 找到 URL (如 `http://localhost:1420`)
+- 找到 URL (如 `http://localhost:15000`)
 - 手动在浏览器中打开
 
 ### 问题 4: 磁盘信息显示 "Failed to get disk info"
@@ -152,7 +152,7 @@ df -k /
 **解决**:
 ```bash
 # 查找占用端口的进程
-lsof -i :1420
+lsof -i :15000
 
 # 杀死进程 (如果安全)
 kill -9 <PID>

@@ -44,7 +44,7 @@ Phase 8 提供两种部署方式:
 ```
 
 然后:
-1. 在浏览器打开 http://localhost:1420
+1. 在浏览器打开 http://localhost:15000
 2. 导航到 "磁盘映射" 页面
 3. 配置您的存储路径
 4. 记录配置的路径
@@ -82,7 +82,7 @@ docker-compose -f docker-compose-standalone.yml logs -f frigate
 ```
 
 访问:
-- **Config Tool**: http://localhost:1420 (主机运行)
+- **Config Tool**: http://localhost:15000 (主机运行)
 - **Frigate Web UI**: http://localhost:5000
 
 ---
@@ -310,7 +310,7 @@ chmod -R 755 ~/frigate
 ```bash
 # 查找占用端口的进程
 lsof -i :5000
-lsof -i :1420
+lsof -i :15000
 
 # 修改 docker-compose.yml 中的端口映射
 # 例如: "15000:5000" 改为使用 15000 端口
@@ -513,7 +513,7 @@ logging:
 - [ ] 网络访问正常
 
 部署后:
-- [ ] 可以访问 Config Tool (http://localhost:1420)
+- [ ] 可以访问 Config Tool (http://localhost:15000)
 - [ ] 可以访问 Frigate (http://localhost:5000)
 - [ ] 磁盘空间检查正常
 - [ ] 日志无错误

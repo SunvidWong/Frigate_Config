@@ -276,7 +276,7 @@
 #### 方式 1: 开发模式 ⚡
 ```bash
 npm run dev
-# 访问 http://localhost:1420
+# 访问 http://localhost:15000
 ```
 **适用**: 开发、测试、演示
 **优点**: 快速、热重载、易调试
@@ -308,7 +308,7 @@ npm run build
 npm run dev
 
 # 2. 打开浏览器
-# http://localhost:1420
+# http://localhost:15000
 
 # 3. 导航到 "磁盘映射" 页面
 

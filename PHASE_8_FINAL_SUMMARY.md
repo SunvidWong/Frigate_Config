@@ -202,7 +202,7 @@ Frontend Build: SUCCESS (991ms)
 npm run dev
 
 # 2. 打开浏览器
-# http://localhost:1420
+# http://localhost:15000
 
 # 3. 导航到 "磁盘映射" 页面
 

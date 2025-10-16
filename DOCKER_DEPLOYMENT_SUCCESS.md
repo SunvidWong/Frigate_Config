@@ -46,7 +46,7 @@ Frigate 已自动创建默认管理员账户:
   - 查看事件和对象检测
 
 ### Frigate Config Tool (配置工具)
-- **URL**: http://localhost:1420
+- **URL**: http://localhost:15000
 - **运行方式**: 主机上的 Tauri 应用 (不在 Docker 中)
 - **启动命令**: `./target/release/frigate-config-tool`
 - **功能**:
@@ -94,7 +94,7 @@ open http://localhost:5002
 ./target/release/frigate-config-tool
 
 # 打开浏览器访问:
-open http://localhost:1420
+open http://localhost:15000
 ```
 
 **推荐工作流程**:
@@ -376,7 +376,7 @@ mqtt:
 ## 📞 快速访问链接
 
 - **Frigate Web UI**: http://localhost:5002
-- **Config Tool**: http://localhost:1420
+- **Config Tool**: http://localhost:15000
 - **MQTT Broker**: localhost:1883
 - **MQTT WebSocket**: ws://localhost:9001
 

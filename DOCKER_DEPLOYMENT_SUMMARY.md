@@ -69,7 +69,7 @@ docker-compose -f docker-compose-standalone.yml up -d
 │                                          │
 │  ┌────────────────────────────────┐     │
 │  │  Config Tool (Phase 8)         │     │
-│  │  端口: 1420                     │     │
+│  │  端口: 15000                     │     │
 │  │  功能: 磁盘映射配置             │     │
 │  └────────────────────────────────┘     │
 │                                          │
@@ -130,7 +130,7 @@ docker-compose -f docker-compose-standalone.yml up -d
 # Step 1: 启动 Config Tool
 ./quick-start.sh
 
-# Step 2: 在浏览器中配置 (http://localhost:1420)
+# Step 2: 在浏览器中配置 (http://localhost:15000)
 # - 导航到 "磁盘映射" 页面
 # - 点击 "扫描推荐路径"
 # - 选择合适的存储位置
@@ -159,7 +159,7 @@ docker-compose -f docker-compose-standalone.yml up -d
 # Step 6: 验证
 docker ps
 curl -I http://localhost:5000
-curl -I http://localhost:1420
+curl -I http://localhost:15000
 
 # ✅ 完成！
 ```
@@ -213,7 +213,7 @@ network_mode: host  # 使用主机网络
 - [x] 脚本可执行 (`chmod +x *.sh`)
 
 ### 部署后验证
-- [x] Config Tool 运行中 (端口 1420)
+- [x] Config Tool 运行中 (端口 15000)
 - [x] Frigate 容器运行中 (`docker ps`)
 - [x] 卷映射正确 (`docker inspect frigate`)
 - [x] 网络访问正常 (`curl localhost:5000`)
@@ -233,7 +233,7 @@ $ ./quick-start.sh
 ✅ 所有文件就绪
 
 📍 启动 Config Tool...
-   访问: http://localhost:1420
+   访问: http://localhost:15000
 
 # 进程确认
 $ ps aux | grep frigate-config-tool

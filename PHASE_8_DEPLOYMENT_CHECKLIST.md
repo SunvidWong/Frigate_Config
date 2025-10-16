@@ -251,7 +251,7 @@ warning: function `log_debug` is never used
 #### 方式 1: 开发模式 (推荐用于测试)
 ```bash
 npm run dev
-# 访问 http://localhost:1420
+# 访问 http://localhost:15000
 ```
 **优点**:
 - 快速启动

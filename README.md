@@ -53,7 +53,7 @@ services:
     image: ghcr.io/sunvidwong/frigate_config:latest
     container_name: frigate-config-tool
     ports:
-      - "1420:1420"
+      - "15000:15000"
     environment:
       - FRIGATE_HTTP_MODE=true
       - RUST_LOG=info
@@ -65,7 +65,7 @@ services:
 docker compose up -d
 ```
 
-访问：http://localhost:1420
+访问：http://localhost:15000
 
 ---
 
@@ -73,7 +73,7 @@ docker compose up -d
 ```bash
 docker run -d \
   --name frigate-config-tool \
-  -p 1420:1420 \
+  -p 15000:15000 \
   -e FRIGATE_HTTP_MODE=true \
   -e RUST_LOG=info \
   --restart unless-stopped \

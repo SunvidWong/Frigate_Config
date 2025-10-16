@@ -43,7 +43,7 @@ npm run dev
 This will:
 - Start Tauri backend
 - Start Vite frontend dev server
-- Open app in default browser (http://localhost:1420)
+- Open app in default browser (http://localhost:15000)
 
 ### 3. Test Disk Mapping Feature (2 min)
 
@@ -166,10 +166,10 @@ curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 source $HOME/.cargo/env
 ```
 
-### Issue: "Port 1420 already in use"
+### Issue: "Port 15000 already in use"
 ```bash
 # Kill existing process
-lsof -ti:1420 | xargs kill -9
+lsof -ti:15000 | xargs kill -9
 ```
 
 ### Issue: Disk info shows "Failed to get disk info"
@@ -256,7 +256,7 @@ Container: /config
 ## 📈 Success Metrics
 
 After following this guide, you should see:
-- ✅ Dev server running on http://localhost:1420
+- ✅ Dev server running on http://localhost:15000
 - ✅ Disk Mapping page loading without errors
 - ✅ Disk space displayed for checked paths
 - ✅ Volume mappings can be added/removed

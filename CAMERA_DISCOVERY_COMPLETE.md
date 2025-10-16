@@ -242,7 +242,7 @@ $ cargo build --release
 ```bash
 $ ./target/release/frigate-config-tool
 ✅ 应用启动成功
-📍 访问: http://localhost:1420
+📍 访问: http://localhost:15000
 ```
 
 **可用功能**:
@@ -309,7 +309,7 @@ $ ./target/release/frigate-config-tool
 
 ### 场景 1: 快速扫描家庭网络
 
-1. 打开应用: http://localhost:1420
+1. 打开应用: http://localhost:15000
 2. 点击导航栏 "摄像头发现" (🔍)
 3. 点击 "快速扫描" 按钮
 4. 等待 30-60 秒
@@ -610,7 +610,7 @@ interface DiscoveredCamera {
 ./target/release/frigate-config-tool
 
 # 2. 打开浏览器
-http://localhost:1420
+http://localhost:15000
 
 # 3. 导航到 "摄像头发现" (🔍)
 

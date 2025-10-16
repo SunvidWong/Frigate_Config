@@ -14,7 +14,7 @@ services:
     image: ghcr.io/sunvidwong/frigate_config:latest
     container_name: frigate-config-web
     ports:
-      - "1420:1420"
+      - "15000:15000"
     environment:
       - FRIGATE_HTTP_MODE=true
       - RUST_LOG=info
@@ -27,21 +27,21 @@ services:
 docker compose up -d
 ```
 
-访问：http://localhost:1420
+访问：http://localhost:15000
 
 ### 方式 2: 使用 docker run
 
 ```bash
 docker run -d \
   --name frigate-config-web \
-  -p 1420:1420 \
+  -p 15000:15000 \
   -e FRIGATE_HTTP_MODE=true \
   -e RUST_LOG=info \
   --restart unless-stopped \
   ghcr.io/sunvidwong/frigate_config:latest
 ```
 
-访问：http://localhost:1420
+访问：http://localhost:15000
 
 ---
 
@@ -100,7 +100,7 @@ docker rm frigate-config-web
 # 启动新容器
 docker run -d \
   --name frigate-config-web \
-  -p 1420:1420 \
+  -p 15000:15000 \
   -e FRIGATE_HTTP_MODE=true \
   -e RUST_LOG=info \
   --restart unless-stopped \
@@ -138,7 +138,7 @@ docker run -d -p 9000:80 ghcr.io/sunvidwong/frigate_config:latest
 如果在服务器上部署，访问地址为：
 
 ```
-http://服务器IP:1420
+http://服务器IP:15000
 ```
 
 ---

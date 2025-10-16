@@ -198,7 +198,7 @@ cd src-ui && npm install && cd ..
 # 3. 运行开发服务器
 npm run dev
 
-# 访问: http://localhost:1420
+# 访问: http://localhost:15000
 ```
 
 ### 方式 2: 生产二进制

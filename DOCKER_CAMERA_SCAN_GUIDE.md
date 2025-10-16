@@ -35,28 +35,28 @@ docker-compose logs frigate-config-tool
 # 应该看到类似信息：
 # INFO Starting Frigate Configuration Tool
 # INFO Running in HTTP server mode (Docker)
-# INFO Starting HTTP server on port 1420
-# INFO HTTP server listening on http://0.0.0.0:1420
+# INFO Starting HTTP server on port 15000
+# INFO HTTP server listening on http://0.0.0.0:15000
 ```
 
 ### 4. 测试 API
 
 ```bash
 # 测试健康检查端点
-curl http://localhost:1420/api/health
+curl http://localhost:15000/api/health
 
 # 应该返回:
 # {"success":true,"data":"OK","error":null}
 
 # 测试网络范围检测
-curl -X POST http://localhost:1420/api/guess_network_range_command \
+curl -X POST http://localhost:15000/api/guess_network_range_command \
   -H "Content-Type: application/json" \
   -d '{}'
 ```
 
 ### 5. 访问前端
 
-打开浏览器访问: `http://localhost:1420`
+打开浏览器访问: `http://localhost:15000`
 
 前端会自动检测环境并使用 HTTP API。
 
@@ -74,11 +74,11 @@ docker build --no-cache -t frigate-config-ui:latest .
 docker-compose up -d
 ```
 
-### 问题 2: 连接到错误的端口 (8080 而不是 1420)
+### 问题 2: 连接到错误的端口 (8080 而不是 15000)
 
 **原因:** 可能有反向代理或负载均衡器
 
-**解决:** 检查前端环境变量或直接访问 1420 端口
+**解决:** 检查前端环境变量或直接访问 15000 端口
 
 ### 问题 3: 摄像头扫描返回空列表
 
@@ -103,11 +103,11 @@ docker-compose up -d
 
 ## 端口说明
 
-- **1420**: HTTP 服务器端口（API + 静态文件）
+- **15000**: HTTP 服务器端口（API + 静态文件）
 - **8080**: 可能是你的反向代理端口
 
 如果通过反向代理访问，确保：
-1. 代理正确转发到容器的 1420 端口
+1. 代理正确转发到容器的 15000 端口
 2. 代理没有修改 HTTP 方法
 3. 代理传递了所有必要的头部信息
 
@@ -118,7 +118,7 @@ docker-compose up -d
 services:
   frigate-config-tool:
     ports:
-      - "1420:1420"
+      - "15000:15000"
     networks:
       - frigate-network
 ```
@@ -130,7 +130,7 @@ services:
     network_mode: "host"
     environment:
       - FRIGATE_HTTP_MODE=true
-      - PORT=1420
+      - PORT=15000
 ```
 
 Host 模式的优势：
@@ -152,11 +152,11 @@ Host 模式的优势：
 
 3. **测试 API:**
    ```bash
-   curl http://localhost:1420/api/health
+   curl http://localhost:15000/api/health
    ```
 
 4. **测试前端:**
-   打开浏览器，访问 `http://localhost:1420`，进入摄像头扫描页面
+   打开浏览器，访问 `http://localhost:15000`，进入摄像头扫描页面
 
 5. **测试扫描:**
    点击"快速扫描"按钮，观察网络请求和响应
@@ -172,13 +172,13 @@ Host 模式的优势：
    ```bash
    docker exec -it frigate-config-tool-phase8 /bin/sh
    # 检查端口监听
-   netstat -tulpn | grep 1420
+   netstat -tulpn | grep 15000
    ```
 
 3. **测试网络连通性:**
    ```bash
    # 从容器内测试
-   docker exec frigate-config-tool-phase8 curl http://localhost:1420/api/health
+   docker exec frigate-config-tool-phase8 curl http://localhost:15000/api/health
    ```
 
 4. **检查环境变量:**
@@ -189,7 +189,7 @@ Host 模式的优势：
 ## 成功标志
 
 部署成功后，你应该能：
-- ✅ 访问 `http://localhost:1420` 看到界面
+- ✅ 访问 `http://localhost:15000` 看到界面
 - ✅ 进入摄像头扫描页面看到蓝色提示信息（Docker/Web 模式）
 - ✅ 点击"快速扫描"可以正常扫描内网摄像头
 - ✅ 点击"添加硬件设备"可以选择预设硬件并添加

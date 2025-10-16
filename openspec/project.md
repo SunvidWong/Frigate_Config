@@ -146,14 +146,14 @@ docker compose up -d
 # Using docker run
 docker run -d \
   --name frigate-config-tool \
-  -p 1420:1420 \
+  -p 15000:15000 \
   -e FRIGATE_HTTP_MODE=true \
   -e RUST_LOG=info \
   --restart unless-stopped \
   ghcr.io/sunvidwong/frigate_config:latest
 ```
 
-Access at: http://localhost:1420
+Access at: http://localhost:15000
 
 ### Environment Variables
 - `FRIGATE_HTTP_MODE=true` - Enable HTTP server mode
