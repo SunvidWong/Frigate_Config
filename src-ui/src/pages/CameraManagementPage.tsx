@@ -144,73 +144,64 @@ export default function CameraManagementPage() {
                                 (window as any).webkitRTCPeerConnection ||
                                 (window as any).mozRTCPeerConnection
 
-      console.log('[WebRTC] RTCPeerConnection 支持:', !!RTCPeerConnection)
+      console.log('[WebRTC] 开始获取本地 IP...')
 
       if (!RTCPeerConnection) {
-        console.log('[WebRTC] 浏览器不支持 RTCPeerConnection')
+        console.warn('[WebRTC] 浏览器不支持 RTCPeerConnection')
         resolve([])
         return
       }
 
       try {
-        // 使用 STUN 服务器但设置短超时，优先获取 srflx 候选
+        // 不使用 STUN 服务器，只获取本地 host 候选
         const pc = new RTCPeerConnection({
-          iceServers: [
-            { urls: 'stun:stun.l.google.com:19302' },
-            { urls: 'stun:stun1.l.google.com:19302' }
-          ]
+          iceServers: [] // 空的 ICE 服务器列表，只获取本地候选
         })
-
-        console.log('[WebRTC] RTCPeerConnection 创建成功')
 
         pc.createDataChannel('')
 
         pc.createOffer()
-          .then((offer: any) => {
-            console.log('[WebRTC] Offer 创建成功')
-            return pc.setLocalDescription(offer)
-          })
-          .then(() => {
-            console.log('[WebRTC] LocalDescription 设置成功')
-          })
+          .then((offer: any) => pc.setLocalDescription(offer))
           .catch((err: any) => {
-            console.error('[WebRTC] Offer/Description 失败:', err)
+            console.error('[WebRTC] 创建 Offer 失败:', err)
           })
 
         pc.onicecandidate = (ice: any) => {
           if (!ice || !ice.candidate || !ice.candidate.candidate) {
-            console.log('[WebRTC] ICE 收集完成，找到的 IP:', ips)
+            console.log('[WebRTC] ICE 收集完成，找到', ips.length, '个本地 IP:', ips)
             pc.close()
             resolve(ips)
             return
           }
 
           const candidate = ice.candidate.candidate
-          console.log('[WebRTC] 收到候选:', candidate)
 
-          // 提取所有 IP 地址（包括 IPv4）
-          const ipRegex = /([0-9]{1,3}\.){3}[0-9]{1,3}/g
-          const matches = candidate.match(ipRegex)
+          // 只处理 host 类型的候选（本地 IP）
+          if (candidate.includes('typ host')) {
+            // 提取 IPv4 地址
+            const ipRegex = /([0-9]{1,3}\.){3}[0-9]{1,3}/g
+            const matches = candidate.match(ipRegex)
 
-          if (matches) {
-            matches.forEach((ip: string) => {
-              console.log('[WebRTC] 提取到 IP:', ip, '是否为私有 IP:', isPrivateIP(ip))
-
-              // 只保留私有 IP 地址（局域网 IP）
-              if (isPrivateIP(ip) && !ips.includes(ip)) {
-                ips.push(ip)
-                console.log('[WebRTC] 添加 IP:', ip)
-              }
-            })
+            if (matches) {
+              matches.forEach((ip: string) => {
+                // 只保留私有 IP 地址（局域网 IP），排除回环地址
+                if (isPrivateIP(ip) && !ips.includes(ip) && !ip.startsWith('127.')) {
+                  ips.push(ip)
+                  console.log('[WebRTC] ✓ 找到本地 IP:', ip)
+                }
+              })
+            }
           }
         }
 
-        // 设置较短超时，优先获取本地候选
+        // 2秒超时
         setTimeout(() => {
-          console.log('[WebRTC] 超时，最终结果:', ips)
           pc.close()
+          if (ips.length === 0) {
+            console.warn('[WebRTC] 未能获取到本地 IP（可能被浏览器隐私保护阻止）')
+          }
           resolve(ips)
-        }, 3000)
+        }, 2000)
       } catch (error) {
         console.error('[WebRTC] 异常:', error)
         resolve([])
@@ -233,6 +224,7 @@ export default function CameraManagementPage() {
     try {
       if (isTauriEnvironment()) {
         // Tauri 环境 - 调用后端 API
+        console.log('[网络检测] Tauri 模式：调用后端 API 获取网络接口')
         const interfaces = await invoke<NetworkInterface[]>('get_network_interfaces')
         setNetworkInterfaces(interfaces)
 
@@ -242,50 +234,48 @@ export default function CameraManagementPage() {
           setSelectedNetworks(new Set([defaultInterface.subnet]))
         }
       } else {
-        // 浏览器环境 - 直接使用常见的网络范围
-        // 注意：由于浏览器隐私保护，无法自动获取本地 IP
-        // 用户可以通过"手动添加 IP 段"功能添加自己的网段
-        console.log('[摄像头管理] 浏览器模式：显示常见网络范围，用户可手动添加')
-        const commonNetworks: NetworkInterface[] = [
-          {
-            name: '192.168.1.x 网段（常见）',
-            ip: '192.168.1.1',
-            subnet: '192.168.1.0/24',
-            is_default: true
-          },
-          {
-            name: '192.168.0.x 网段',
-            ip: '192.168.0.1',
-            subnet: '192.168.0.0/24',
-            is_default: false
-          },
-          {
-            name: '10.0.0.x 网段',
-            ip: '10.0.0.1',
-            subnet: '10.0.0.0/24',
-            is_default: false
-          },
-          {
-            name: '172.16.0.x 网段',
-            ip: '172.16.0.1',
-            subnet: '172.16.0.0/24',
+        // 浏览器环境 - 使用 WebRTC 获取本地 IP
+        console.log('[网络检测] 浏览器模式：使用 WebRTC 获取本地 IP')
+        const localIPs = await getLocalIPsViaWebRTC()
+
+        if (localIPs.length > 0) {
+          // 成功获取到本地 IP，转换为网络接口列表
+          const interfaces: NetworkInterface[] = localIPs.map((ip, index) => ({
+            name: `本地网卡 ${index + 1}`,
+            ip: ip,
+            subnet: ipToSubnet(ip),
+            is_default: index === 0
+          }))
+
+          console.log('[网络检测] ✓ 成功检测到', interfaces.length, '个网络接口:', interfaces)
+          setNetworkInterfaces(interfaces)
+
+          // 默认选中第一个网卡
+          setSelectedNetworks(new Set([interfaces[0].subnet]))
+        } else {
+          // 无法获取本地 IP，显示提示信息
+          console.warn('[网络检测] ⚠ 无法自动检测本地 IP，请手动添加网段')
+          const placeholder: NetworkInterface = {
+            name: '⚠ 无法自动检测（请手动添加）',
+            ip: '',
+            subnet: '',
             is_default: false
           }
-        ]
-        setNetworkInterfaces(commonNetworks)
-        setSelectedNetworks(new Set([commonNetworks[0].subnet]))
+          setNetworkInterfaces([placeholder])
+          setSelectedNetworks(new Set())
+        }
       }
     } catch (error) {
-      console.error('Failed to load network interfaces:', error)
+      console.error('[网络检测] 检测失败:', error)
       // 添加一个默认网络作为后备
       const fallback: NetworkInterface = {
-        name: 'default',
-        ip: '192.168.1.100',
-        subnet: '192.168.1.0/24',
-        is_default: true
+        name: '检测失败（请手动添加）',
+        ip: '',
+        subnet: '',
+        is_default: false
       }
       setNetworkInterfaces([fallback])
-      setSelectedNetworks(new Set([fallback.subnet]))
+      setSelectedNetworks(new Set())
     }
   }
 
