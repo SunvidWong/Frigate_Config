@@ -44,6 +44,11 @@ const FRIGATE_HARDWARE_OPTIONS = [
 ]
 
 export default function ConfigDeployPage() {
+  // 环境检测
+  const isTauriEnvironment = () => {
+    return typeof (window as any).__TAURI__ !== 'undefined'
+  }
+
   // Docker Compose 状态
   const [dockerComposeContent, setDockerComposeContent] = useState<string>('')
   const [dockerComposePath, setDockerComposePath] = useState<string>('')
@@ -106,6 +111,11 @@ export default function ConfigDeployPage() {
 
   // 扫描 PCI 设备
   const scanPCIDevices = async () => {
+    if (!isTauriEnvironment()) {
+      alert('硬件扫描功能仅在桌面模式下可用。\n\n在 Docker 模式下，请使用"手动添加"功能来配置硬件加速器。')
+      return
+    }
+
     setIsScanning(true)
     try {
       const devices = await invoke<PCIDevice[]>('scan_pci_devices')
@@ -275,6 +285,14 @@ export default function ConfigDeployPage() {
     if (selectedDevices.length === 0) {
       const confirm = window.confirm('未添加任何硬件设备，是否继续部署？')
       if (!confirm) return
+    }
+
+    // 检查运行环境
+    if (!isTauriEnvironment()) {
+      alert('一键部署功能仅在桌面模式下可用。\n\n在 Docker 模式下，请下载生成的 docker-compose.yml 文件，然后在宿主机上手动运行：\n\ndocker-compose up -d')
+      // 自动触发下载
+      saveDockerCompose()
+      return
     }
 
     setIsDeploying(true)
