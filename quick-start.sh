@@ -27,7 +27,7 @@ fi
 echo "✅ 所有文件就绪"
 echo ""
 echo "📍 启动 Config Tool..."
-echo "   访问: http://localhost:1420"
+echo "   访问: http://localhost:15000"
 echo ""
 echo "💡 提示:"
 echo "   - 导航到 '磁盘映射' 页面测试 Phase 8 功能"

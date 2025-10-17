@@ -42,9 +42,9 @@ fn main() {
 #[tokio::main]
 async fn run_http_mode() {
     let port = std::env::var("PORT")
-        .unwrap_or_else(|_| "1420".to_string())
+        .unwrap_or_else(|_| "15000".to_string())
         .parse()
-        .unwrap_or(1420);
+        .unwrap_or(15000);
 
     if let Err(e) = http_server::run_http_server(port).await {
         error!("HTTP server error: {}", e);

@@ -74,14 +74,14 @@ RUN mkdir -p /app/data
 ENV RUST_LOG=info
 ENV FRIGATE_CONFIG_DATA_DIR=/app/data
 ENV FRIGATE_HTTP_MODE=true
-ENV PORT=1420
+ENV PORT=15000
 
 # Expose port for HTTP server
-EXPOSE 1420
+EXPOSE 15000
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:1420/ || exit 1
+    CMD curl -f http://localhost:15000/ || exit 1
 
 # Run the application
 CMD ["/app/frigate-config-tool"]

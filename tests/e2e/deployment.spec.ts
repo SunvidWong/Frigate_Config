@@ -11,7 +11,7 @@ async function waitForText(page: Page, text: string, timeout = 30000) {
 
 // Helper function to navigate to Deploy page
 async function navigateToDeploy(page: Page) {
-  await page.goto('http://localhost:1420');
+  await page.goto('http://localhost:15000');
   await page.click('text=Deploy Frigate');
   await expect(page).toHaveURL(/.*deploy/);
 }
@@ -19,7 +19,7 @@ async function navigateToDeploy(page: Page) {
 test.describe('Deployment Workflow', () => {
   test.beforeEach(async ({ page }) => {
     // Start fresh on each test
-    await page.goto('http://localhost:1420');
+    await page.goto('http://localhost:15000');
   });
 
   test('should display Deploy page with validation section', async ({ page }) => {
@@ -51,7 +51,7 @@ test.describe('Deployment Workflow', () => {
 
   test('should display validation errors when config is invalid', async ({ page }) => {
     // First, load an invalid configuration
-    await page.goto('http://localhost:1420/manual-config');
+    await page.goto('http://localhost:15000/manual-config');
     await page.click('button:has-text("Load Configuration")');
 
     // Select invalid config file (would need to be set up in test environment)
@@ -264,7 +264,7 @@ test.describe('Deployment Workflow', () => {
 
   test('should navigate to Logs page and display real-time logs', async ({ page }) => {
     // Assuming deployment is already running
-    await page.goto('http://localhost:1420/logs');
+    await page.goto('http://localhost:15000/logs');
 
     // Should show Logs page
     await expect(page.locator('h1')).toContainText('Logs');
@@ -283,7 +283,7 @@ test.describe('Deployment Workflow', () => {
   });
 
   test('should filter logs by search term', async ({ page }) => {
-    await page.goto('http://localhost:1420/logs');
+    await page.goto('http://localhost:15000/logs');
 
     // Wait for logs to load
     await page.waitForSelector('[data-testid="log-line"]', { timeout: 30000 });

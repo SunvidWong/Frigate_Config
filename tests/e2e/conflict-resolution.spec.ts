@@ -7,7 +7,7 @@ import fs from 'fs/promises';
 
 test.describe('Conflict Resolution Workflow', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('http://localhost:1420');
+    await page.goto('http://localhost:15000');
     await page.waitForLoadState('networkidle');
   });
 

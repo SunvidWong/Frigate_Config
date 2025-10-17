@@ -35,7 +35,7 @@ export default defineConfig({
   // 共享配置
   use: {
     // 基础URL - Tauri开发服务器
-    baseURL: 'http://localhost:1420',
+    baseURL: 'http://localhost:15000',
 
     // 收集失败测试的追踪信息
     trace: 'on-first-retry',
@@ -71,7 +71,7 @@ export default defineConfig({
   // 运行测试前执行: npm run dev
   webServer: {
     command: 'cd src-ui && npm run dev',
-    url: 'http://localhost:1420',
+    url: 'http://localhost:15000',
     reuseExistingServer: !process.env.CI,
     timeout: 120000, // 2分钟启动超时
   },

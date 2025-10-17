@@ -29,7 +29,7 @@ if [ -z "$CONTAINERS" ]; then
     echo "或者使用 docker run:"
     echo "  docker run -d \\"
     echo "    --name frigate-config-tool \\"
-    echo "    -p 1420:1420 \\"
+    echo "    -p 15000:15000 \\"
     echo "    -e FRIGATE_HTTP_MODE=true \\"
     echo "    -e RUST_LOG=info \\"
     echo "    frigate-config-ui:latest"
@@ -96,10 +96,10 @@ echo ""
 
 # 6. 检查端口监听
 echo "6. 检查容器内端口监听..."
-PORT_CHECK=$(docker exec $RUNNING sh -c "netstat -tuln 2>/dev/null || ss -tuln 2>/dev/null" | grep 1420)
+PORT_CHECK=$(docker exec $RUNNING sh -c "netstat -tuln 2>/dev/null || ss -tuln 2>/dev/null" | grep 15000)
 
 if [ -z "$PORT_CHECK" ]; then
-    echo "❌ 容器内未监听 1420 端口"
+    echo "❌ 容器内未监听 15000 端口"
     echo ""
     echo "尝试检查进程:"
     docker exec $RUNNING ps aux
@@ -111,7 +111,7 @@ echo ""
 
 # 7. 测试容器内 API
 echo "7. 测试容器内 API 访问..."
-API_TEST=$(docker exec $RUNNING sh -c "wget -q -O- http://localhost:1420/api/health 2>/dev/null || curl -s http://localhost:1420/api/health 2>/dev/null")
+API_TEST=$(docker exec $RUNNING sh -c "wget -q -O- http://localhost:15000/api/health 2>/dev/null || curl -s http://localhost:15000/api/health 2>/dev/null")
 
 if [ -z "$API_TEST" ]; then
     echo "❌ 容器内无法访问 API"
@@ -123,10 +123,10 @@ echo ""
 
 # 8. 测试主机访问
 echo "8. 测试主机访问容器..."
-HOST_TEST=$(curl -s http://localhost:1420/api/health 2>/dev/null)
+HOST_TEST=$(curl -s http://localhost:15000/api/health 2>/dev/null)
 
 if [ -z "$HOST_TEST" ]; then
-    echo "❌ 主机无法访问容器 1420 端口"
+    echo "❌ 主机无法访问容器 15000 端口"
     echo ""
     echo "检查端口映射:"
     docker port $RUNNING
@@ -163,7 +163,7 @@ if [ ! -z "$HTTP_SERVER_LOG" ] && [ ! -z "$API_TEST" ]; then
     echo "✅ HTTP 服务器正常运行"
     echo ""
     echo "访问地址:"
-    echo "  http://localhost:1420"
+    echo "  http://localhost:15000"
     echo ""
 
     if [ -z "$HOST_TEST" ]; then
@@ -171,7 +171,7 @@ if [ ! -z "$HTTP_SERVER_LOG" ] && [ ! -z "$API_TEST" ]; then
         echo ""
         echo "尝试以下命令:"
         echo "  1. 检查端口是否被占用:"
-        echo "     lsof -i :1420"
+        echo "     lsof -i :15000"
         echo ""
         echo "  2. 重启容器:"
         echo "     docker-compose restart"

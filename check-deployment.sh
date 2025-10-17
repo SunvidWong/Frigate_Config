@@ -93,7 +93,7 @@ echo ""
 # 访问链接
 echo "🔗 访问链接:"
 echo "   Frigate Web UI:  http://localhost:5002"
-echo "   Config Tool:     http://localhost:1420"
+echo "   Config Tool:     http://localhost:15000"
 echo "   MQTT:            localhost:1883"
 echo ""
 

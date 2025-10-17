@@ -79,7 +79,7 @@ case $choice in
         echo ""
         echo "💡 启动 Config Tool (在主机上运行):"
         echo "   ./target/release/frigate-config-tool"
-        echo "   然后访问: http://localhost:1420"
+        echo "   然后访问: http://localhost:15000"
         echo ""
         ;;
     2)
