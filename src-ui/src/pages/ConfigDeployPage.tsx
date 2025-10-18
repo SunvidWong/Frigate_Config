@@ -111,14 +111,33 @@ export default function ConfigDeployPage() {
 
   // 扫描 PCI 设备
   const scanPCIDevices = async () => {
-    if (!isTauriEnvironment()) {
-      alert('硬件扫描功能仅在桌面模式下可用。\n\n在 Docker 模式下，请使用"手动添加"功能来配置硬件加速器。')
-      return
-    }
-
     setIsScanning(true)
     try {
-      const devices = await invoke<PCIDevice[]>('scan_pci_devices')
+      let devices: PCIDevice[] = []
+
+      if (isTauriEnvironment()) {
+        // Tauri 模式
+        devices = await invoke<PCIDevice[]>('scan_pci_devices')
+      } else {
+        // HTTP 模式 - 调用 HTTP API
+        const response = await fetch('/api/scan_pci_devices', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        })
+        const result = await response.json()
+        if (result.success && result.data) {
+          // 将 HTTP API 返回的数据转换为 PCIDevice 格式
+          devices = result.data.devices.map((d: any) => ({
+            vendor_id: d.vendor || '',
+            device_id: d.device || '',
+            class_code: d.class || '',
+            description: `${d.vendor} ${d.device}`,
+            slot: d.slot || ''
+          }))
+        } else {
+          throw new Error(result.error || '扫描失败')
+        }
+      }
 
       // 自动转换为 HardwareDevice
       const hardwareDevices: HardwareDevice[] = devices.map((pci, index) => ({
@@ -287,52 +306,70 @@ export default function ConfigDeployPage() {
       if (!confirm) return
     }
 
-    // 检查运行环境
-    if (!isTauriEnvironment()) {
-      alert('一键部署功能仅在桌面模式下可用。\n\n在 Docker 模式下，请下载生成的 docker-compose.yml 文件，然后在宿主机上手动运行：\n\ndocker-compose up -d')
-      // 自动触发下载
-      saveDockerCompose()
-      return
-    }
-
     setIsDeploying(true)
     setDeploymentLogs(['正在部署...'])
 
     try {
-      // 先保存 docker-compose 内容到文件
-      await invoke('save_docker_compose_content', {
-        path: dockerComposePath,
-        content: dockerComposeContent
-      })
+      if (isTauriEnvironment()) {
+        // Tauri 模式 - 使用 Tauri IPC
+        // 先保存 docker-compose 内容到文件
+        await invoke('save_docker_compose_content', {
+          path: dockerComposePath,
+          content: dockerComposeContent
+        })
 
-      setDeploymentLogs(prev => [...prev, '✓ 已保存 docker-compose.yml'])
+        setDeploymentLogs(prev => [...prev, '✓ 已保存 docker-compose.yml'])
 
-      // 执行部署
-      const result = await invoke<DeploymentResult>('deploy_frigate', {
-        dockerComposePath,
-        useCompose: true
-      })
+        // 执行部署
+        const result = await invoke<DeploymentResult>('deploy_frigate', {
+          dockerComposePath,
+          useCompose: true
+        })
 
-      if (result.success) {
-        setDeploymentLogs(prev => [
-          ...prev,
-          '✓ Frigate 容器已启动',
-          `✓ 容器 ID: ${result.container_id}`,
-          result.message
-        ])
-
-        if (result.warnings && result.warnings.length > 0) {
+        // 处理结果...
+        if (result.success) {
           setDeploymentLogs(prev => [
             ...prev,
-            '⚠️ 警告:',
-            ...(result.warnings || [])
+            '✓ Frigate 容器已启动',
+            `✓ 容器 ID: ${result.container_id}`,
+            result.message
           ])
-        }
 
-        // 等待几秒后进行健康检查
-        setTimeout(() => checkHealth(), 5000)
+          if (result.warnings && result.warnings.length > 0) {
+            setDeploymentLogs(prev => [
+              ...prev,
+              '⚠️ 警告:',
+              ...(result.warnings || [])
+            ])
+          }
+
+          // 等待几秒后进行健康检查
+          setTimeout(() => checkHealth(), 5000)
+        } else {
+          setDeploymentLogs(prev => [...prev, `✗ 部署失败: ${result.message}`])
+        }
       } else {
-        setDeploymentLogs(prev => [...prev, `✗ 部署失败: ${result.message}`])
+        // HTTP/Docker 模式 - 提供下载并给出指引
+        setDeploymentLogs(prev => [
+          ...prev,
+          '📋 Docker 容器模式部署说明:',
+          '1. 下载生成的 docker-compose.yml 文件',
+          '2. 在宿主机上运行: docker-compose up -d',
+          '',
+          '正在准备下载...'
+        ])
+
+        // 自动触发下载
+        saveDockerCompose()
+
+        setDeploymentLogs(prev => [
+          ...prev,
+          '✓ docker-compose.yml 已下载',
+          '',
+          '💡 提示: 请在宿主机终端运行以下命令:',
+          '   cd /path/to/download',
+          '   docker-compose up -d'
+        ])
       }
     } catch (error) {
       setDeploymentLogs(prev => [...prev, `✗ 错误: ${String(error)}`])

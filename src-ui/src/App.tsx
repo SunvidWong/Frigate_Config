@@ -1,7 +1,9 @@
 import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom'
 import CameraManagementPage from './pages/CameraManagementPage'
 import ConfigEditorPage from './pages/ConfigEditorPage'
+import ManualConfig from './pages/ManualConfig'
 import ConfigDeployPage from './pages/ConfigDeployPage'
+import DiskMappingPage from './pages/DiskMappingPage'
 import LogsPage from './pages/LogsPage'
 import SystemStatus from './components/SystemStatus'
 
@@ -21,6 +23,8 @@ function AppContent() {
     { path: '/config-deploy', label: '配置与部署', icon: '🚀' },
     { path: '/cameras', label: '摄像头管理', icon: '📷' },
     { path: '/config-editor', label: '配置编辑器', icon: '📝' },
+    { path: '/manual-config', label: '手动配置', icon: '⚙️' },
+    { path: '/disk-mapping', label: '磁盘映射', icon: '💾' },
     { path: '/logs', label: '日志', icon: '📋' },
   ]
 
@@ -66,6 +70,8 @@ function AppContent() {
           <Route path="/config-deploy" element={<ConfigDeployPage />} />
           <Route path="/cameras" element={<CameraManagementPage />} />
           <Route path="/config-editor" element={<ConfigEditorPage />} />
+          <Route path="/manual-config" element={<ManualConfig />} />
+          <Route path="/disk-mapping" element={<DiskMappingPage />} />
           <Route path="/logs" element={<LogsPage />} />
         </Routes>
       </main>
