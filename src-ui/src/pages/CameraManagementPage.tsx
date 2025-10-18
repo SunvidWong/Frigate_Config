@@ -572,6 +572,23 @@ export default function CameraManagementPage() {
         <div className="w-1/2 border-r border-gray-200 flex flex-col bg-white">
 
           <div className="p-6 border-b border-gray-200">
+            {/* Docker 模式提示 */}
+            {!isTauriEnvironment() && (
+              <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <div className="flex items-start gap-2">
+                  <span className="text-yellow-600 text-lg">⚠️</span>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-yellow-800 mb-1">
+                      Docker 容器模式提示
+                    </p>
+                    <p className="text-xs text-yellow-700">
+                      检测到的网络可能是容器内部网络。请在下方<strong>手动添加</strong>您的宿主机实际网段（如 10.10.0.0/24 或 192.168.1.0/24）
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* 自动检测到的网络 */}
             <div className="mb-4">
               <div className="flex items-center justify-between mb-2">
@@ -599,10 +616,11 @@ export default function CameraManagementPage() {
                         checked={selectedNetworks.has(iface.subnet)}
                         onChange={() => toggleNetworkSelection(iface.subnet)}
                         className="rounded text-blue-500"
+                        disabled={iface.subnet.startsWith('172.') && !isTauriEnvironment()}
                       />
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
-                          <span className="font-medium text-sm text-gray-900">
+                          <span className={`font-medium text-sm ${iface.subnet.startsWith('172.') && !isTauriEnvironment() ? 'text-gray-400' : 'text-gray-900'}`}>
                             {iface.name}
                           </span>
                           {iface.is_default && (
@@ -610,8 +628,13 @@ export default function CameraManagementPage() {
                               默认
                             </span>
                           )}
+                          {iface.subnet.startsWith('172.') && !isTauriEnvironment() && (
+                            <span className="px-2 py-0.5 text-xs bg-orange-100 text-orange-700 rounded-full">
+                              容器网络
+                            </span>
+                          )}
                         </div>
-                        <p className="text-xs text-gray-600 mt-0.5">
+                        <p className={`text-xs mt-0.5 ${iface.subnet.startsWith('172.') && !isTauriEnvironment() ? 'text-gray-400' : 'text-gray-600'}`}>
                           {iface.ip} → {iface.subnet}
                         </p>
                       </div>
@@ -624,8 +647,13 @@ export default function CameraManagementPage() {
             {/* 自定义网络 */}
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                手动添加 IP 段
+                手动添加宿主机网段 {!isTauriEnvironment() && <span className="text-red-600">*</span>}
               </label>
+              <p className="text-xs text-gray-500 mb-2">
+                请输入您的摄像头所在的局域网段，例如：<br/>
+                • 路由器是 10.10.0.1，输入：<code className="bg-gray-100 px-1">10.10.0.0/24</code><br/>
+                • 路由器是 192.168.1.1，输入：<code className="bg-gray-100 px-1">192.168.1.0/24</code>
+              </p>
               <div className="flex gap-2 mb-2">
                 <input
                   type="text"
