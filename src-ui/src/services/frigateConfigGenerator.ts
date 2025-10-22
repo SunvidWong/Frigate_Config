@@ -363,4 +363,490 @@ cameras:
   #       days: 10
 `;
   }
+
+  /**
+   * RTSP H.264 single camera template
+   */
+  static getRtspH264Template(): string {
+    return `# Frigate RTSP H.264 single camera template
+mqtt:
+  enabled: False
+
+detectors:
+  cpu:
+    type: cpu
+    num_threads: 3
+
+cameras:
+  front_door:
+    enabled: True
+    ffmpeg:
+      inputs:
+        - path: rtsp://username:password@camera_ip:554/h264
+          roles:
+            - detect
+            - record
+    detect:
+      enabled: True
+      width: 1280
+      height: 720
+      fps: 5
+      detector: cpu
+    objects:
+      track:
+        - person
+    record:
+      enabled: True
+      retain:
+        days: 10
+`;
+  }
+
+  /**
+   * Coral TPU detectors template (USB)
+   */
+  static getCoralTemplate(): string {
+    return `# Frigate Coral TPU detectors template
+mqtt:
+  enabled: False
+
+detectors:
+  edgetpu:
+    type: edgetpu
+    device: usb
+
+cameras:
+  front_door:
+    enabled: True
+    ffmpeg:
+      inputs:
+        - path: rtsp://username:password@camera_ip:554/stream
+          roles:
+            - detect
+            - record
+    detect:
+      enabled: True
+      width: 1280
+      height: 720
+      fps: 5
+      detector: edgetpu
+    objects:
+      track:
+        - person
+`;
+  }
+
+  /**
+   * Basic NVR template with recordings and snapshots
+   */
+  static getBasicNvrTemplate(): string {
+    return `# Frigate Basic NVR template
+mqtt:
+  enabled: False
+
+detectors:
+  cpu:
+    type: cpu
+    num_threads: 3
+
+record:
+  enabled: True
+  retain:
+    days: 10
+    mode: motion
+
+snapshots:
+  enabled: True
+  retain:
+    default: 5
+
+cameras: {}
+`;
+  }
+
+  /**
+   * ONNX detector template (AUTO device, uses NVIDIA GPU if available)
+   */
+  static getOnnxTemplate(): string {
+    return `# Frigate ONNX detector template (AUTO/NVIDIA)
+mqtt:
+  enabled: False
+
+detectors:
+  onnx:
+    type: onnx
+    device: AUTO
+
+cameras:
+  front_door:
+    enabled: True
+    ffmpeg:
+      inputs:
+        - path: rtsp://username:password@camera_ip:554/stream
+          roles:
+            - detect
+            - record
+    detect:
+      enabled: True
+      width: 1280
+      height: 720
+      fps: 5
+      detector: onnx
+    objects:
+      track:
+        - person
+`;
+  }
+
+  /**
+   * OpenVINO detector template (Intel CPU)
+   */
+  static getOpenVinoTemplate(): string {
+    return `# Frigate OpenVINO detector template (Intel CPU)
+mqtt:
+  enabled: False
+
+detectors:
+  openvino:
+    type: openvino
+    device: CPU
+
+cameras:
+  front_door:
+    enabled: True
+    ffmpeg:
+      inputs:
+        - path: rtsp://username:password@camera_ip:554/stream
+          roles:
+            - detect
+            - record
+    detect:
+      enabled: True
+      width: 1280
+      height: 720
+      fps: 5
+      detector: openvino
+    objects:
+      track:
+        - person
+`;
+  }
+
+  /**
+   * NVIDIA CUDA ffmpeg preset + ONNX detector (AUTO)
+   */
+  static getCudaTemplate(): string {
+    return `# Frigate NVIDIA CUDA template (ffmpeg preset + ONNX)
+mqtt:
+  enabled: False
+
+detectors:
+  onnx:
+    type: onnx
+    device: AUTO
+
+cameras:
+  front_door:
+    enabled: True
+    ffmpeg:
+      hwaccel_args: preset-nvidia
+      inputs:
+        - path: rtsp://username:password@camera_ip:554/stream
+          roles:
+            - detect
+            - record
+    detect:
+      enabled: True
+      width: 1920
+      height: 1080
+      fps: 10
+      detector: onnx
+    objects:
+      track:
+        - person
+`;
+  }
+
+  /**
+   * Intel QSV ffmpeg preset + OpenVINO GPU detector
+   */
+  static getIntelQsvTemplate(): string {
+    return `# Frigate Intel QSV template (ffmpeg preset + OpenVINO GPU)
+mqtt:
+  enabled: False
+
+detectors:
+  openvino:
+    type: openvino
+    device: GPU
+
+cameras:
+  front_door:
+    enabled: True
+    ffmpeg:
+      hwaccel_args: preset-intel-qsv-h264
+      inputs:
+        - path: rtsp://username:password@camera_ip:554/stream
+          roles:
+            - detect
+            - record
+    detect:
+      enabled: True
+      width: 1280
+      height: 720
+      fps: 5
+      detector: openvino
+    objects:
+      track:
+        - person
+`;
+  }
+
+  /**
+   * AMD VAAPI ffmpeg preset + ONNX detector (AUTO)
+   */
+  static getAmdVaapiTemplate(): string {
+    return `# Frigate AMD VAAPI template (ffmpeg preset + ONNX)
+mqtt:
+  enabled: False
+
+detectors:
+  onnx:
+    type: onnx
+    device: AUTO
+
+cameras:
+  front_door:
+    enabled: True
+    ffmpeg:
+      hwaccel_args: preset-vaapi
+      inputs:
+        - path: rtsp://username:password@camera_ip:554/stream
+          roles:
+            - detect
+            - record
+    detect:
+      enabled: True
+      width: 1280
+      height: 720
+      fps: 5
+      detector: onnx
+    objects:
+      track:
+        - person
+`;
+  }
+
+  /**
+   * Rockchip RK3588 RKNN detector template
+   */
+  static getRknnTemplate(): string {
+    return `# Frigate Rockchip RK3588 RKNN detector template
+mqtt:
+  enabled: False
+
+detectors:
+  rknn:
+    type: rknn
+    num_cores: 0
+
+cameras:
+  front_door:
+    enabled: True
+    ffmpeg:
+      hwaccel_args: preset-rkmpp
+      inputs:
+        - path: rtsp://username:password@camera_ip:554/stream
+          roles:
+            - detect
+            - record
+    detect:
+      enabled: True
+      width: 1280
+      height: 720
+      fps: 5
+      detector: rknn
+    objects:
+      track:
+        - person
+`;
+  }
+
+  /**
+   * Hailo-8L NPU detector template
+   */
+  static getHailo8lTemplate(): string {
+    return `# Frigate Hailo-8L NPU detector template
+mqtt:
+  enabled: False
+
+detectors:
+  hailo8l:
+    type: hailo8l
+    device: PCIe
+    model:
+      width: 320
+      height: 320
+      input_tensor: nhwc
+      input_pixel_format: bgr
+      model_type: yolov6
+
+cameras:
+  front_door:
+    enabled: True
+    ffmpeg:
+      inputs:
+        - path: rtsp://username:password@camera_ip:554/stream
+          roles:
+            - detect
+            - record
+    detect:
+      enabled: True
+      width: 1280
+      height: 720
+      fps: 5
+      detector: hailo8l
+    objects:
+      track:
+        - person
+`;
+  }
+
+  /**
+   * NVIDIA Jetson ffmpeg preset + ONNX detector
+   */
+  static getJetsonTemplate(): string {
+    return `# Frigate NVIDIA Jetson template (ffmpeg preset + ONNX)
+mqtt:
+  enabled: False
+
+detectors:
+  onnx:
+    type: onnx
+    device: AUTO
+
+cameras:
+  front_door:
+    enabled: True
+    ffmpeg:
+      hwaccel_args: preset-jetson-h264
+      inputs:
+        - path: rtsp://username:password@camera_ip:554/stream
+          roles:
+            - detect
+            - record
+    detect:
+      enabled: True
+      width: 1280
+      height: 720
+      fps: 5
+      detector: onnx
+    objects:
+      track:
+        - person
+`;
+  }
+
+  /**
+   * OpenVINO GPU detector template (no ffmpeg hwaccel)
+   */
+  static getOpenVinoGpuOnlyTemplate(): string {
+    return `# Frigate OpenVINO GPU detector template (no ffmpeg hwaccel)
+mqtt:
+  enabled: False
+
+detectors:
+  openvino:
+    type: openvino
+    device: GPU
+
+cameras:
+  front_door:
+    enabled: True
+    ffmpeg:
+      inputs:
+        - path: rtsp://username:password@camera_ip:554/stream
+          roles:
+            - detect
+            - record
+    detect:
+      enabled: True
+      width: 1280
+      height: 720
+      fps: 5
+      detector: openvino
+    objects:
+      track:
+        - person
+`;
+  }
+
+  /**
+   * ONNX CUDA detector template (explicit CUDA device)
+   */
+  static getOnnxCudaTemplate(): string {
+    return `# Frigate ONNX CUDA detector template (explicit device)
+mqtt:
+  enabled: False
+
+detectors:
+  onnx:
+    type: onnx
+    device: CUDA
+
+cameras:
+  front_door:
+    enabled: True
+    ffmpeg:
+      hwaccel_args: preset-nvidia
+      inputs:
+        - path: rtsp://username:password@camera_ip:554/stream
+          roles:
+            - detect
+            - record
+    detect:
+      enabled: True
+      width: 1920
+      height: 1080
+      fps: 10
+      detector: onnx
+    objects:
+      track:
+        - person
+`;
+  }
+
+  /**
+   * CPU detector high-performance template
+   */
+  static getCpuHighPerfTemplate(): string {
+    return `# Frigate CPU detector template (high-performance)
+mqtt:
+  enabled: False
+
+detectors:
+  cpu:
+    type: cpu
+    num_threads: 6
+
+cameras:
+  front_door:
+    enabled: True
+    ffmpeg:
+      inputs:
+        - path: rtsp://username:password@camera_ip:554/stream
+          roles:
+            - detect
+            - record
+    detect:
+      enabled: True
+      width: 1920
+      height: 1080
+      fps: 10
+      detector: cpu
+    objects:
+      track:
+        - person
+`;
+  }
 }

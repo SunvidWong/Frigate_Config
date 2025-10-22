@@ -1,7 +1,7 @@
 // 系统状态指示器组件
 
 import React, { useState, useEffect } from 'react'
-import { invoke } from '@tauri-apps/api/tauri'
+import { isTauriEnvironment, safeInvoke } from '../utils/tauri'
 
 interface SystemStatusData {
   hardware_devices: number
@@ -15,9 +15,16 @@ export const SystemStatus: React.FC = () => {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    const tauri = isTauriEnvironment()
+    if (!tauri) {
+      // 浏览器模式：跳过 Tauri 状态检查
+      setLoading(false)
+      return
+    }
+
     const checkStatus = async () => {
       try {
-        const result = await invoke<SystemStatusData>('check_system_status')
+        const result = await safeInvoke<SystemStatusData>('check_system_status')
         setStatus(result)
       } catch (error) {
         console.error('获取系统状态失败:', error)

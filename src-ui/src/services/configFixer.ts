@@ -12,7 +12,7 @@ export class ConfigFixer {
   /**
    * Analyze YAML and suggest fixes
    */
-  static analyzConfig(yamlContent: string): FixSuggestion[] {
+  static analyzeConfig(yamlContent: string): FixSuggestion[] {
     const suggestions: FixSuggestion[] = [];
 
     try {

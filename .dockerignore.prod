@@ -1,0 +1,38 @@
+# Git
+.git
+.gitignore
+
+# Source code (we only need built artifacts)
+src-tauri/src/
+src-ui/src/
+src-ui/node_modules/
+node_modules/
+
+# Documentation
+*.md
+docs/
+PHASE_8_*.md
+specs/
+
+# Tests
+tests/
+src-ui/src/**/*.test.ts
+src-ui/src/**/*.test.tsx
+
+# Development files
+.vscode/
+.idea/
+*.log
+.DS_Store
+.env.local
+.env.*.local
+
+# CI/CD
+.github/
+
+# Keep these for production build:
+# - target/release/frigate-config-tool (binary)
+# - src-ui/dist/ (frontend)
+
+# But exclude debug builds
+target/debug/

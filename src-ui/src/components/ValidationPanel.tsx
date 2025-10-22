@@ -24,7 +24,7 @@ const ValidationPanel: React.FC<ValidationPanelProps> = ({
 
   useEffect(() => {
     if (yamlContent && (validationResult?.errors.length || validationResult?.warnings.length)) {
-      const suggestions = ConfigFixer.analyzConfig(yamlContent);
+      const suggestions = ConfigFixer.analyzeConfig(yamlContent);
       setFixSuggestions(suggestions);
       setShowSuggestions(suggestions.length > 0);
     } else {

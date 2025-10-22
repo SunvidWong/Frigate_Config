@@ -265,15 +265,29 @@ pub fn check_frigate_config_loaded(endpoint: &str) -> Result<bool, String> {
 
 /// Check which cameras are initialized in Frigate
 pub fn check_cameras_initialized(endpoint: &str) -> Result<Vec<String>, String> {
-    // For now, return empty vec - would need JSON parsing in real implementation
-    // This would call /api/config and parse the cameras section
-    let _output = Command::new("curl")
-        .args(["-s", endpoint])
-        .output()
-        .map_err(|e| format!("Failed to check cameras: {}", e))?;
+    let base = endpoint.trim_end_matches('/');
+    let url = format!("{}/config", base);
 
-    // Placeholder: would parse JSON response here
-    Ok(Vec::new())
+    let output = Command::new("curl")
+        .args(["-s", "--connect-timeout", "5", &url])
+        .output()
+        .map_err(|e| format!("Failed to fetch cameras config: {}", e))?;
+
+    let body = String::from_utf8_lossy(&output.stdout).to_string();
+    if body.trim().is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let json: serde_json::Value = serde_json::from_str(&body)
+        .map_err(|e| format!("Failed to parse config JSON: {}", e))?;
+
+    let cameras = json
+        .get("cameras")
+        .and_then(|v| v.as_object())
+        .map(|o| o.keys().map(|k| k.to_string()).collect::<Vec<_>>())
+        .unwrap_or_default();
+
+    Ok(cameras)
 }
 
 // ========== Wait for Healthy (T113) ==========

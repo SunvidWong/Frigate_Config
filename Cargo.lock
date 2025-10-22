@@ -716,6 +716,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "dns-lookup"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "daef0c720fa2158f4cc9fba3e05a490b67d6165ad06fc2c90c6c62c0ddd0ced1"
+dependencies = [
+ "libc",
+]
+
+[[package]]
 name = "dtoa"
 version = "1.0.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -899,6 +908,7 @@ dependencies = [
  "axum",
  "chrono",
  "dirs",
+ "dns-lookup",
  "fs_extra",
  "futures",
  "hex",

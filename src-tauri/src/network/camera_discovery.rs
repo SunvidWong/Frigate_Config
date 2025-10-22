@@ -214,11 +214,12 @@ pub async fn scan_ip(ip: IpAddr, ports: &[u16], timeout_ms: u64) -> Option<Disco
 }
 
 /// Resolve IP to hostname
-async fn resolve_hostname(_ip: &IpAddr) -> Option<String> {
-    // Reverse DNS lookup disabled for now
-    // Would require additional dependencies (dns_lookup crate)
-    // This is a placeholder for future implementation
-    None
+async fn resolve_hostname(ip: &IpAddr) -> Option<String> {
+    let ip_copy = *ip;
+    tokio::task::spawn_blocking(move || dns_lookup::lookup_addr(&ip_copy).ok())
+        .await
+        .ok()
+        .flatten()
 }
 
 /// Scan network for cameras

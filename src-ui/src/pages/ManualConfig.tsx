@@ -14,6 +14,7 @@ import {
   Snapshot
 } from '../types/configuration';
 import '../styles/manual-config.css';
+import { FrigateConfigGenerator } from '../services/frigateConfigGenerator';
 
 interface ManualConfigProps {
   className?: string;
@@ -166,10 +167,12 @@ const ManualConfig: React.FC<ManualConfigProps> = ({ className = '' }) => {
 
   // Apply template (triggers merge and conflict detection)
   // TODO: Wire up to template selection UI
-  // @ts-expect-error - Function reserved for future template selection UI
   const handleApplyTemplate = useCallback(async (templateContent: string) => {
     if (!yamlContent) {
-      setError('Please load a configuration first');
+      // No config loaded: write template directly to editor and mark unsaved
+      setYamlContent(templateContent);
+      setHasUnsavedChanges(true);
+      setError(null);
       return;
     }
 
@@ -297,6 +300,65 @@ const ManualConfig: React.FC<ManualConfigProps> = ({ className = '' }) => {
     }
   }, [currentFilePath]);
 
+  // Template selection state and apply handler
+  const [selectedTemplate, setSelectedTemplate] = useState<string>('default');
+  const applySelectedTemplate = useCallback(async () => {
+    let templateContent = '';
+    switch (selectedTemplate) {
+      case 'default':
+        templateContent = FrigateConfigGenerator.getTemplate();
+        break;
+      case 'empty':
+        templateContent = `mqtt:\n  enabled: False\n\ndetectors:\n  cpu:\n    type: cpu\n    num_threads: 3\n\ncameras: {}`;
+        break;
+      case 'rtsp_h264':
+        templateContent = FrigateConfigGenerator.getRtspH264Template();
+        break;
+      case 'coral_tpu':
+        templateContent = FrigateConfigGenerator.getCoralTemplate();
+        break;
+      case 'basic_nvr':
+        templateContent = FrigateConfigGenerator.getBasicNvrTemplate();
+        break;
+      case 'onnx':
+        templateContent = FrigateConfigGenerator.getOnnxTemplate();
+        break;
+      case 'openvino':
+        templateContent = FrigateConfigGenerator.getOpenVinoTemplate();
+        break;
+      case 'cuda':
+        templateContent = FrigateConfigGenerator.getCudaTemplate();
+        break;
+      case 'intel_qsv':
+        templateContent = FrigateConfigGenerator.getIntelQsvTemplate();
+        break;
+      case 'amd_vaapi':
+        templateContent = FrigateConfigGenerator.getAmdVaapiTemplate();
+        break;
+      case 'rk3588_rknn':
+        templateContent = FrigateConfigGenerator.getRknnTemplate();
+        break;
+      case 'hailo8l':
+        templateContent = FrigateConfigGenerator.getHailo8lTemplate();
+        break;
+      case 'jetson':
+        templateContent = FrigateConfigGenerator.getJetsonTemplate();
+        break;
+      case 'openvino_gpu':
+        templateContent = FrigateConfigGenerator.getOpenVinoGpuOnlyTemplate();
+        break;
+      case 'onnx_cuda':
+        templateContent = FrigateConfigGenerator.getOnnxCudaTemplate();
+        break;
+      case 'cpu_high_perf':
+        templateContent = FrigateConfigGenerator.getCpuHighPerfTemplate();
+        break;
+      default:
+        templateContent = FrigateConfigGenerator.getTemplate();
+    }
+    await handleApplyTemplate(templateContent);
+  }, [selectedTemplate, handleApplyTemplate]);
+
   // Load snapshots when backup list is opened
   useEffect(() => {
     if (showBackupList) {
@@ -339,6 +401,39 @@ const ManualConfig: React.FC<ManualConfigProps> = ({ className = '' }) => {
         </div>
 
         <div className="toolbar-right">
+          <label className="filter-label">
+            Template:
+            <select
+              className="filter-select"
+              value={selectedTemplate}
+              onChange={(e) => setSelectedTemplate(e.target.value)}
+              disabled={isLoading}
+            >
+              <option value="default">Default Frigate Template</option>
+              <option value="empty">Empty Config (basic detectors)</option>
+              <option value="rtsp_h264">RTSP H.264 Single Camera</option>
+              <option value="coral_tpu">Coral TPU Detectors</option>
+              <option value="basic_nvr">Basic NVR (recording & snapshots)</option>
+              <option value="onnx">ONNX (AUTO/NVIDIA)</option>
+              <option value="onnx_cuda">ONNX CUDA (explicit device)</option>
+              <option value="openvino">OpenVINO (Intel CPU)</option>
+              <option value="openvino_gpu">OpenVINO GPU (no ffmpeg accel)</option>
+              <option value="cuda">NVIDIA CUDA (FFmpeg preset)</option>
+              <option value="intel_qsv">Intel QSV (FFmpeg preset)</option>
+              <option value="amd_vaapi">AMD VAAPI (FFmpeg preset)</option>
+              <option value="rk3588_rknn">Rockchip RK3588 RKNN</option>
+              <option value="hailo8l">Hailo-8L NPU</option>
+              <option value="jetson">NVIDIA Jetson (ONNX + preset)</option>
+              <option value="cpu_high_perf">CPU High Performance</option>
+            </select>
+          </label>
+          <button
+            onClick={applySelectedTemplate}
+            disabled={isLoading}
+            className="btn btn-secondary"
+          >
+            Apply Template
+          </button>
           <button
             onClick={() => setShowBackupList(true)}
             disabled={isLoading}

@@ -60,6 +60,9 @@ futures = "0.3"
 # Network interface discovery
 if-addrs = "0.12"
 
+# Reverse DNS lookup for camera discovery
+dns-lookup = "0.2"
+
 [features]
 default = ["custom-protocol"]
 custom-protocol = ["tauri/custom-protocol"]
